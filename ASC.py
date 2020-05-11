@@ -6,7 +6,7 @@ from scipy.fft import ifft #as ifft
 
 # Program description
 '''
-Uses Fourier method of Sziklas and Seigman (1975) [see also Leavey and Countial, Young TIM User Guide (2017).] for beam propagation.
+Uses Fourier method of Sziklas and Seigman (1975) [see also Leavey and Courtial, Young TIM User Guide (2017).] for beam propagation.
 Calculation of:
 1) waist size along beam path. (beam_profile)
 2) effect of mirror tilt on position and direction of beam at waist. (simple_correction, simple_corr_dep)
