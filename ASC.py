@@ -35,7 +35,19 @@ FI = -9000                                                          # OFI lens
 R1 = 5500                                                           # ROC of OM*1
 R2 = 2700                                                           # ROC of OM*2
 
-class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D array of complex numbers; 1D array of absolute values
+class Beam: 
+    '''Represents Gaussian beam in x, propagating along z. 
+    Attributes: 
+    U: 1D array, Complex amplitude
+    w: 1D array, width
+    z: 1D array, z-co-ordinate
+    x: 1D array, x-co-ordinate
+    kneg/kpos: 1D arrays, negative/positive components of k-vactor along x-axis (spatial frequencies)
+    kx: 1D array, component of k-vector along x-axis (spatial frequency)
+    kz: 1D array, component of k-vector along z-axis
+    kwav: constant, magnitude of wavevector
+    zres: constant: resolution in z
+    '''
     def __init__(self, *args): # Initialises amplitude array.
         x0 = 0
         a0 = 0
@@ -49,7 +61,6 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
         self.kwav = 2 * np.pi / wav                                             # Magnitude of wave-vector
         self.kz = np.sqrt(self.kwav**2 - self.kx**2)                            # 1D array representing kz-space. Derived from condition for monochromaticity. 
         self.zres = 3000                                                        # z-resolution in mm: 3000 for most; 50 for beam profile. 
-        
         if len(args) == 2:                                                      # Two arguments: Instantiates Beam object from waist size, w0, and distance to waist, z0. 
             w0 = args[0]
             z0 = args[1]
@@ -62,9 +73,9 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
         q0 = z0 - 1j * np.pi * w0**2 / wav                                      # Input beam parameter
         U0 = (1/q0) * np.exp(1j * self.kwav * (self.x-x0)**2 / (2 * q0))        # Input array, offset by x0
         U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
-        self.U = U0                             
-        self.w = [Gaussfit(self.x,abs(self.U),1)[2]]
-        self.z = [0]
+        self.U = U0                                                             # Initialise amplitude array
+        self.w = [Gaussfit(self.x,abs(self.U),1)[2]]                            # Initialise width list
+        self.z = [0]                                                            # Initialise z-position list.
 
     def step(self, D): # Propagate input Beam object over distance, D; return Beam object. Fourier algorithm. 
         Pin = fft(self.U)                       # FFT of amplitude distribution, U, gives spatial frequency distribution, Pin at initial position, z.
@@ -100,7 +111,6 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
             Unext.w = w
             Unext.z = z
         return Unext
-
 
     def tilt(self,angle): # Applies linear phase-gradient, simulating effect of tilting mirror. Input angle in mrad. 
         Uin = self.U
@@ -426,14 +436,7 @@ if __name__ == "__main__":
 
 # Redundant or stored code
 # ------------------------
-# Width and Distance classes. Superceded by store. 
-'''class Width(): # Stores list of widths which is built up as beam propagates along z. 
-    def __init__(self, Wlist):
-        self.W = Wlist    
-class Distance():
-    def __init__(self, Zlist):
-        self.Z = Zlist'''
-# Bring initialisation into Class definition
+# Initialisation outside Class definition
 '''
 # Globals
 #W = 200                                                             # width of window in mm
@@ -537,12 +540,6 @@ def sense45_dep():
 # Aperture
 '''
  U0 = np.concatenate((np.zeros(int(0.475*R)),np.ones(int(0.01 * R)),np.zeros(int(0.03 * R)),np.ones(int(0.01 * R)),np.zeros(int(0.475 * R))), axis = 0)
-'''
-# Beam class definition
-'''
-        #self.Ureal = np.real(self.U)
-        #self.Uimag = np.imag(self.U)
-        #self.Uphas = np.arctan(self.Uimag / self.Ureal)
 '''
 # Gaussfit method for Beam class
 '''
