@@ -49,6 +49,7 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
         self.kwav = 2 * np.pi / wav                                             # Magnitude of wave-vector
         self.kz = np.sqrt(self.kwav**2 - self.kx**2)                            # 1D array representing kz-space. Derived from condition for monochromaticity. 
         self.zres = 3000                                                        # z-resolution in mm: 3000 for most; 50 for beam profile. 
+        
         if len(args) == 2:                                                      # Two arguments: Instantiates Beam object from waist size, w0, and distance to waist, z0. 
             w0 = args[0]
             z0 = args[1]
@@ -62,6 +63,8 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
         U0 = (1/q0) * np.exp(1j * self.kwav * (self.x-x0)**2 / (2 * q0))        # Input array, offset by x0
         U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
         self.U = U0                             
+        self.w = [Gaussfit(self.x,abs(self.U),1)[2]]
+        self.z = [0]
 
     def step(self, D): # Propagate input Beam object over distance, D; return Beam object. Fourier algorithm. 
         Pin = fft(self.U)                       # FFT of amplitude distribution, U, gives spatial frequency distribution, Pin at initial position, z.
@@ -73,8 +76,8 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
     def propagate(self,distance,profile=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
         Uprev = self
         if profile:
-            w = Uprev.w           # unpack width_list
-            z = Uprev.z        # unpack z-position_list
+            w = Uprev.w                 # unpack width_list
+            z = Uprev.z                 # unpack z-position_list
             res = 50                    # Set res to 50 if generating plot of beam profile.
         else:
             res = self.zres             # Otherwise use global variable, zres
@@ -85,7 +88,7 @@ class Beam: # Represents the amplitude of a beam in plane z. Attributes: 1D arra
             Uprev = Unext
             if profile:
                 zprev = z[-1]
-                z.append(zprev + res)       # Build up z-array as go along. 
+                z.append(zprev + res)   # Build up z-array as go along. 
                 wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
                 w.append(wnext)
         Unext = Uprev.step(rem)         # Final step of size rem. 
@@ -172,8 +175,6 @@ def beam_profile():
     # Runs series of methods corresponding to propagation of beam through various elements in system. 
     # Calculate beam waist along the way ('True' condition passed to propagate). 
     U = Beam(w0,z0)
-    U.w = [Gaussfit(U.x,abs(U.U),1)[2]]
-    U.z = [0]
     U = U.propagate(space_0,True)
     U = U.lens(FI)
     U = U.propagate(space_1,True)
