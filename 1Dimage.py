@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import fft #as fft
 from scipy.fft import ifft #as ifft
+from scipy.fft import fftshift
 
 # Program description
 '''
@@ -16,27 +17,28 @@ S1 = 100                                                       # Space 1 in mm
 class Wave: 
     '''Represents Wave in x, propagating along z. 
     Attributes: 
-    U: 1D array, Complex amplitude
+    W: width of window in mm
+    res: resolution in x and y in mm
+    N: number of bins along each axis
     x: 1D array, x-co-ordinate
+    kwav: constant, magnitude of wavevector
     kneg/kpos: 1D arrays, negative/positive components of k-vactor along x-axis (spatial frequencies)
     kx: 1D array, component of k-vector along x-axis (spatial frequency)
     kz: 1D array, component of k-vector along z-axis
-    kwav: constant, magnitude of wavevector
     zres: constant: resolution in z
+    U: 1D array, Complex amplitude
     '''
     def __init__(self, *args): # Initialises amplitude array.
-        self.W = 20                                                                      # Width of window in mm
-        xres = 0.001                                                                # 1D array representing kz-space. Derived from condition for monochromaticity.
-        self.N = int(self.W / xres)                                                      # Number of x-bins (keeps resolution the same)  
-        self.x = np.linspace(-self.W/2, self.W/2, self.N)                                     # 1D array representing x-space
-        self.kneg = np.linspace(-(np.pi * self.N)/self.W, -(2 * np.pi)/self.W, int(self.N/2)) # 1D array representing kx-space from max -ve value to min -ve value
-        self.kpos = np.linspace((2 * np.pi)/self.W, (np.pi * self.N)/self.W, int(self.N/2))   # 1D array representing kx-space from min +ve value to max +ve value
-        self.kx = np.concatenate((self.kpos,self.kneg), axis = 0)                   # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
-        self.kwav = 2 * np.pi / wav                                                 # Magnitude of wave-vector
-        self.kz = np.sqrt(self.kwav**2 - self.kx**2)                                # 1D array representing kz-space. Derived from condition for monochromaticity. 
-        self.zres = 3000                                                            # z-resolution in mm: 3000 for most; 50 for transverse profile as function of z. 
-        U0 = np.ones(len(self.x))                                                   # Input array: plane wave.
-        self.U = U0                                                                 # Initialise amplitude array.
+        self.W = 10                                                                                 # Width of window in mm
+        self.res = 0.01                                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
+        self.N = int(self.W / self.res)                                                                  # Number of x-bins (keeps resolution the same)  
+        self.x = np.linspace(-self.W/2, self.W/2, self.N)                                           # 1D array representing x-space
+        self.kwav = 2 * np.pi / wav                                                                 # Magnitude of wave-vector        
+        self.kx_noshift = np.linspace(-(np.pi * self.N)/self.W, (np.pi * self.N)/self.W, self.N)    # Define kx-array
+        self.kx = fftshift(self.kx_noshift)                                                         # fftshift so that kz array matches (un-shifted) spatial frequency distibution (P) in step method
+        self.kz = np.sqrt(self.kwav**2 - self.kx**2)                                                # 1D array representing kz-space. Derived from condition for monochromaticity. 
+        self.zres = 3000                                                                            # z-resolution in mm: 3000 for most; 50 for transverse profile as function of z. 
+        self.U = np.ones(len(self.x))                                                               # Input array: plane wave.
 
     def aperture(self,width):
         Uin = self.U
@@ -48,9 +50,9 @@ class Wave:
         self.U = Uout
         return self
 
-    def supergaussian(self,width):
+    def supergaussian(self,width,exponent):
         Uin = self.U
-        Uout = Uin *  np.exp(-(self.kwav * (self.x)**2 / (2 * (width**2)))**10)       # super gaussian function
+        Uout = Uin *  np.exp(-((self.x)**2 / (2 * (width**2)))**exponent)       # super gaussian function
         self.U = Uout
         return self
 
@@ -96,48 +98,39 @@ class Wave:
         plt.figure(n)
         plt.plot(self.x,Uplot,'-')
         axes = plt.gca()
-        #axes.set_xlim([-10, 10])
+        axes.set_xlim([-5, 5])
         axes.set_ylim([0, 1.1])
-        plt.grid(which = 'major', axis = 'both')
         plt.xlabel('x / mm')
-        plt.ylabel('Normalised amplitude distribution')
-        #plt.legend()
-        plt.tight_layout()
+        plt.ylabel('Normalised spatial distribution')
 
     def freq_plot(self,n=2): # Plot magnitude of Spatial frequency array in k-space. 
         P = fft(self.U)
-        kplot = np.concatenate((self.kneg,self.kpos), axis = 0)     
-        Pneg = P[int(len(P)/2):]
-        Ppos = P[:int(len(P)/2)]
-        Pswap = np.concatenate((Pneg,Ppos), axis = 0)
-        Pabs = abs(Pswap)
+        kxplot = fftshift(self.kx)   
+        Pshift = fftshift(P)
+        Pabs = abs(Pshift)
         Pplot = Pabs/max(Pabs)
         plt.figure(n)
-        plt.plot(kplot,Pplot,'-')
+        plt.plot(kxplot,Pplot,'-')
         axes = plt.gca()
-        #axes.set_xlim([-500, 500])
+        axes.set_xlim([-300, 300])
         axes.set_ylim([0, 1.1])
-        plt.grid(which = 'major', axis = 'both')
         plt.xlabel('k_x / mm^-1')
         plt.ylabel('Normalised spatial frequency distribution')
-        #plt.legend()
-        plt.tight_layout()
 
 def system(): 
     # Runs series of methods corresponding to wave propagation through various elements in system. 
     U = Wave()
-    #U = U.aperture(10)
-    U = U.supergaussian(200)
+    #U = U.aperture(0.6)
+    U = U.supergaussian(0.3,10)
     U.amp_plot(1)
-    #U.freq_plot(2)
-    U = U.lens(F1)
-    U = U.propagate(S1)
-    #U.amp_plot(3)
-    U.freq_plot(4)
     U = U.propagate(S1)
     U = U.lens(F1)
     U = U.propagate(S1)
-    U.amp_plot(5)
+    U.freq_plot(2)
+    U = U.propagate(S1)
+    U = U.lens(F1)
+    U = U.propagate(S1)
+    U.amp_plot(3)
     #U.freq_plot(6)
 
 def main():
@@ -153,4 +146,10 @@ if __name__ == "__main__":
 '''
 mask = np.concatenate((np.zeros(int(0.475*R)),np.ones(int(0.01 * R)),np.zeros(int(0.03 * R)),np.ones(int(0.01 * R)),np.zeros(int(0.475 * R))), axis = 0)    # double slit
 mask = np.concatenate((np.zeros(int(0.25*self.N)),np.ones(int(0.5 * self.N)),np.zeros(int(0.25 * self.N))), axis = 0)                                       # single slit
+'''
+# fftshift 'by hand'
+'''
+#Pneg = P[int(len(P)/2):]
+#Ppos = P[:int(len(P)/2)]
+#Pswap = np.concatenate((Pneg,Ppos), axis = 0)
 '''
