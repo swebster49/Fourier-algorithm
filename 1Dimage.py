@@ -10,9 +10,9 @@ Uses Fourier method of Sziklas and Seigman (1975) [see also Leavey and Courtial,
 '''
 
 # Inputs
-wav = 1e-3                                                 # wavelength in mm
-F1 = 100                                                       # Lens 1 in mm
-S1 = 100                                                       # Space 1 in mm
+wav = 0.5                                                      # wavelength in um
+F1 = 30000                                                       # Lens 1 in um
+S1 = 30000                                                       # Space 1 in um
 
 class Wave: 
     '''Represents Wave in x, propagating along z. 
@@ -29,15 +29,15 @@ class Wave:
     U: 1D array, Complex amplitude
     '''
     def __init__(self, *args): # Initialises amplitude array.
-        self.W = 10                                                                                 # Width of window in mm
-        self.res = 0.01                                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
-        self.N = int(self.W / self.res)                                                                  # Number of x-bins (keeps resolution the same)  
+        self.W = 100000                                                                              # Width of window in um
+        self.res = 0.3                                                                                # Resolution in um
+        self.N = int(self.W / self.res)                                                             # Number of x-bins (keeps resolution the same)  
         self.x = np.linspace(-self.W/2, self.W/2, self.N)                                           # 1D array representing x-space
         self.kwav = 2 * np.pi / wav                                                                 # Magnitude of wave-vector        
         self.kx_noshift = np.linspace(-(np.pi * self.N)/self.W, (np.pi * self.N)/self.W, self.N)    # Define kx-array
         self.kx = fftshift(self.kx_noshift)                                                         # fftshift so that kz array matches (un-shifted) spatial frequency distibution (P) in step method
         self.kz = np.sqrt(self.kwav**2 - self.kx**2)                                                # 1D array representing kz-space. Derived from condition for monochromaticity. 
-        self.zres = 3000                                                                            # z-resolution in mm: 3000 for most; 50 for transverse profile as function of z. 
+        self.zres = 1000000                                                                         # z-resolution in um: v large number, so always takes single step between elements. 
         self.U = np.ones(len(self.x))                                                               # Input array: plane wave.
 
     def aperture(self,width):
@@ -98,9 +98,9 @@ class Wave:
         plt.figure(n)
         plt.plot(self.x,Uplot,'-')
         axes = plt.gca()
-        axes.set_xlim([-5, 5])
+        #axes.set_xlim([-50, 50])
         axes.set_ylim([0, 1.1])
-        plt.xlabel('x / mm')
+        plt.xlabel('x / um')
         plt.ylabel('Normalised spatial distribution')
 
     def freq_plot(self,n=2): # Plot magnitude of Spatial frequency array in k-space. 
@@ -112,16 +112,16 @@ class Wave:
         plt.figure(n)
         plt.plot(kxplot,Pplot,'-')
         axes = plt.gca()
-        axes.set_xlim([-300, 300])
+        #axes.set_xlim([-0.03, 0.03])
         axes.set_ylim([0, 1.1])
-        plt.xlabel('k_x / mm^-1')
+        plt.xlabel('k_x / um^-1')
         plt.ylabel('Normalised spatial frequency distribution')
 
 def system(): 
     # Runs series of methods corresponding to wave propagation through various elements in system. 
     U = Wave()
-    #U = U.aperture(0.6)
-    U = U.supergaussian(0.3,10)
+    #U = U.aperture(2)
+    U = U.supergaussian(1,1)               # width in um, exponent of supergaussian
     U.amp_plot(1)
     U = U.propagate(S1)
     U = U.lens(F1)

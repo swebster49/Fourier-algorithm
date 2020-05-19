@@ -25,7 +25,7 @@ b = 1090                                                            # input Rayl
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 #w0 = 0.6076                                                         # input waist size - specified directly. 
 a0 = 0                                                              # initial angle in mrad
-x0 = 0                                                              # initial offset in mm
+x0 = 0.3                                                              # initial offset in mm
 space_0 = 1120                                                      # SRM - OFI
 space_1 = 2320                                                      # OFI - OM*S
 space_2 = 2015                                                      # OM*S - OM*1
@@ -424,10 +424,10 @@ def sen_plot(dist,xdispl,kdispl,n=6): # Plots x- and k- offset as function of di
     fig.tight_layout()
 
 def main():
-    beam_profile()
-    print(simple_correction(0,0))
-    simple_corr_dep()
-    corr_dep()
+    #beam_profile()
+    #print(simple_correction(0,0))
+    #simple_corr_dep()
+    #corr_dep()
     sen_dep()
     plt.show()
     
