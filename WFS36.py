@@ -24,10 +24,10 @@ z0 = -3550                                                          # input wais
 b = 1090                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 #w0 = 0.6076                                                         # input waist size - specified directly. 
-a0 = 0#0.3                                                              # initial angle in mrad
-x0 = 0#1                                                              # initial offset in mm
-space_0 = 1120                                                      # SRM - L0
-space_1 = 2282                                                      # L0 - OM*S
+a0 = 0                                                              # initial angle in mrad
+x0 = 0                                                              # initial offset in mm
+space_0 = 1120                                                      # SRM - OFI
+space_1 = 2282                                                      # OFI - OM*S
 space_2 = 1240                                                      # OM*S - OM*1
 space_3 = 1590                                                      # OM*1 - OM*2
 space_4 = 1220                                                      # OM*2 - OMC*
@@ -210,7 +210,7 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
     axes.set_xlabel('Distance along beam path / m')
     axes.set_ylabel('1/e^2 beam radius / mm')
-    plt.title('Layout 9c. Beam profile calculated with Fourier algorithm.')
+    plt.title('Layout 5f. Beam profile calculated with Fourier algorithm.')
     plt.tight_layout()
 
 def simple_correction(b,c): 
@@ -378,20 +378,18 @@ def phase_plot(dist,angle,n=5): # Plots orthogonality as a function of mirror se
     plt.tight_layout()
     plt.legend(loc = 'upper right')
 
-def sense(var_space,x_err,a_err): # Introduce input error: offset, x0, or angle, a0. Variable spacing passed to function. Returns x and k offsets. 
+def sense(var_space_4,x_err,a_err): # Introduce input error: offset, x0, or angle, a0. Variable spacing passed to function. Returns x and k offsets. 
     U = Beam(w0,z0,x_err,a_err)
     U = U.propagate(space_0)
     U = U.lens(FI)
-    U = U.propagate(1500)
-    U = U.lens(1000)
-    U = U.propagate(var_space)
+    U = U.propagate(space_1)
     #U = U.tilt(0)
-    #U = U.propagate(space_2)
-    #U = U.mirror(R1)
-    #U = U.propagate(space_3)
-    #U = U.mirror(R2)
+    U = U.propagate(space_2)
+    U = U.mirror(R1)
+    U = U.propagate(space_3)
+    U = U.mirror(R2)
     #U = U.tilt(0)
-    #U = U.propagate(var_space_4)
+    U = U.propagate(var_space_4)
     xparams = U.amp_fit()
     Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
@@ -413,15 +411,13 @@ def sen_dep(x_err,a_err): # Calculates x and k offsets as a function of distance
 def sen_plot(dist,x_err,a_err,n=6): # Plots x- and k- offset as function of distance from OMA2, mirror(R2).
     fig, ax1 = plt.subplots()
     ax1.plot(dist,x_err, color = 'blue', label = 'position error')
-    ax1.plot(dist,a_err, color = 'orange', label = 'angle error')
+    ax1.plot(dist,a_err, color = 'orange', label = 'direction error')
     ax1.set_xlim([0, 2000])
     ax1.set_ylim([-3, 3])
-    #ax1.vlines(x = 1152, ymin = -3, ymax = +3,\
-    #linewidth = 2,color = 0.7*np.array([1,0,0]),linestyles = 'dashed',label = 'OM0')
-    #ax1.vlines(x = 2057, ymin = -3, ymax = +3,\
-    #linewidth = 2,color = 0.5*np.array([0,1,0]),linestyles = 'dashed',label = 'BS2')
+    ax1.vlines(x = 1210, ymin = -3, ymax = +3,\
+    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed',label = 'OMC waist')
     ax1.grid(which = 'major', axis = 'both')
-    ax1.set_xlabel('distance from L_WFS / mm')
+    ax1.set_xlabel('distance from OMA2 / mm')
     ax1.set_ylabel('centre of amplitude distribution / 1/e^2 radius in x-space')
     fig.legend(loc = 'upper left', bbox_to_anchor=(0.1, 0.95))
     fig.tight_layout()
@@ -429,9 +425,9 @@ def sen_plot(dist,x_err,a_err,n=6): # Plots x- and k- offset as function of dist
 def main():
     #beam_profile()
     #print(simple_correction(0,0))
-    #simple_corr_dep()
+    simple_corr_dep()
     #corr_dep()
-    sen_dep(1,0.3)
+    #sen_dep(1,0.3)
     plt.show()
     
 if __name__ == "__main__":
