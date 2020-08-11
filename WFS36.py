@@ -213,8 +213,7 @@ def beam_profile():
     U = U.lens(L1)
     U = U.propagate(space_5,True)
     U = U.lens(L2)
-    U = U.propagate(space_6,True)
-    U = U.propagate(10000 - (space_0 + space_1 + space_2 + space_3 + space_4 + space_5 + space_6),True)
+    U = U.propagate(10000 - (space_0 + space_1 + space_2 + space_3 + space_4 + space_5),True)
     width_plot(U.z,U.w)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
@@ -254,7 +253,6 @@ def WFS_sense(x0,a0,space_6):
     return Dx
 
 def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
-    count = 0
     x1_displ = []
     x2_displ = []
     x1_direc = []
@@ -274,10 +272,20 @@ def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and re
     return (x1_displ,x2_displ,x1_direc,x2_direc)
 
 def WFS_dep():  # Calculates x offsets at WFS1 and WFS2 for +/- dislpacement/direction errors at SRM.
-        #WFS_sense(0.0, 0.3, var_space[0])
         Stest = WFS_test(var_space)
-        #WFS_orthogonality(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
+        #WFS_orthogonality(Stest[0],Stest[1],Stest[2],Stest[3])
         WFS_plot(Stest[0],Stest[1],Stest[2],Stest[3])
+
+def WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc): # Calculates phase-separation between WFS which sense displacement and direction errors upstream.
+    v1 = np.array([[x1_displ[-1] - x1_displ[0], x2_displ[-1] - x2_displ[0]]])
+    v2 = np.array([[x1_direc[-1] - x1_direc[0]], [x2_direc[-1] - x2_direc[0]]])
+    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
+    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
+    dot_product = np.dot(v1_norm,v2_norm)
+    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
+    #phi_ASC = 90 - phi_ASC % 90
+    #print('%.1f' % (phi_ASC[0,0],))
+    return phi_ASC[0,0]
 
 def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at WFS1 vs displacement at WFS2 when displacement and direction errors are applied at the SRM. 
     plt.figure(n, figsize=(6, 5.5), dpi=120)
@@ -290,20 +298,13 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     axes.set_ylim([-2, 2])
     plt.xlabel('offset in x at WFS1 / 1/e^2 radius')
     plt.ylabel('offset in x at WFS2 / 1/e^2 radius')
+    textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
-'''
-def WFS_orthogonality(x1,k1,x2,k2): # Calculates phase-separation between WFS which sense displacement and direction errors upstream.
-    v1 = np.array([[x1[-1] - x1[0], k1[-1] - k1[0]]])
-    v2 = np.array([[x2[-1] - x2[0]], [k2[-1] - k2[0]]])
-    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
-    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
-    dot_product = np.dot(v1_norm,v2_norm)
-    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
-    print('%.1f' % (phi_ASC[0,0],))
-    return phi_ASC[0,0]'''
 
 def main():
-    beam_profile()
+    #beam_profile()
     WFS_dep()
     plt.show()
     
