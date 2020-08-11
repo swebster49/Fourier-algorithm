@@ -23,6 +23,7 @@ wav = 1.064e-3                                                      # wavelength
 z0 = -3550                                                          # input waist location
 b = 1090                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
+#w0 = 0.6076                                                         # input waist size - specified directly. 
 a0 = 0                                                              # initial angle in mrad
 x0 = 0.3                                                              # initial offset in mm
 space_0 = 1120                                                      # SRM - OFI
@@ -283,7 +284,7 @@ def orthogonality(x1,k1,x2,k2): # Calculates phase-separation between two mirror
     v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
     dot_product = np.dot(v1_norm,v2_norm)
     phi_ASC = (180 / np.pi) * np.arccos(dot_product)
-    print('%.1f' % (phi_ASC[0,0],))
+    #print('%.0f' % (phi_ASC[0,0],))
     return phi_ASC[0,0]
 
 def correction(b,c,sp1,sp2,sp3,order): 
@@ -426,7 +427,7 @@ def main():
     #print(simple_correction(0,0))
     #simple_corr_dep()
     #corr_dep()
-    sen_dep(1.0,0.3)
+    sen_dep(1,0.3)
     plt.show()
     
 if __name__ == "__main__":
