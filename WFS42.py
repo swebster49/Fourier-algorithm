@@ -24,7 +24,7 @@ z0 = -3550                                                          # input wais
 b0 = 1090                                                           # input Rayleigh range
 w0 = np.sqrt(b0 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 z1 = 0.0                                                            # focus inbetween TTs
-b1 = 0.261                                                          # Rayleigh Range at focus inbetween TTs
+b1 = 261                                                            # Rayleigh Range at focus inbetween TTs
 w1 = np.sqrt(b1 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
@@ -210,11 +210,9 @@ def beam_profile():
     U = U.propagate(space_1,True)
     U = U.lens(L1)
     U = U.propagate(space_2,True)
-    #U = U.tilt(0.0)
     U = U.propagate(space_3,True)
-    #U = U.tilt(0.0)
+    #U = Beam(w1,z1)
     U = U.propagate(space_4,True)
-    #U = U.tilt(0.0)
     U = U.propagate(space_5,True)
     U = U.lens(L2)
     U = U.propagate(space_6,True)
@@ -249,7 +247,7 @@ def TT_corr(b,c):
     U = U.propagate(space_2)
     U = U.tilt(b)
     U = U.propagate(space_3)
-    #U = U.tilt(0.0)
+    #U = Beam(w1,z1)
     U = U.propagate(space_4)
     U = U.tilt(c)
     U = U.propagate(space_5)
@@ -303,8 +301,8 @@ def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirr
     axes = plt.gca()
     axes.set_xlim([-3, 3])
     axes.set_ylim([-3, 3])
-    plt.xlabel('offset in x at OMC waist / 1/e^2 radius in x-space')
-    plt.ylabel('offset in k_x at OMC waist / 1/e^2 radius in k-space')
+    plt.xlabel('offset in x at waist between WFS / 1/e^2 radius in x-space')
+    plt.ylabel('offset in k_x at waist between WFS / 1/e^2 radius in k-space')
     textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1,k1,x2,k2),)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
@@ -313,8 +311,7 @@ def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirr
 def WFS_sense(a0,x0,space_7): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
     # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
-    U = Beam(w1,z1,x0,0.0)
-    U = U.tilt(a0)
+    U = Beam(w1,z1,x0,a0)
     U = U.propagate(space_4)
     U = U.propagate(space_5)
     U = U.lens(L2)
@@ -330,8 +327,8 @@ def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and re
     x2_displ = []
     x1_direc = []
     x2_direc = []
-    displ = np.linspace(-20.0, 20.0, 2)
-    direc = np.linspace(-0.1, 0.1, 2)
+    displ = np.linspace(-1.0, 1.0, 2)
+    direc = np.linspace(-1.0, 1.0, 2)
     for i in range(len(displ)):
         Dx1 = WFS_sense(displ[i],0.0,var_space[0])
         Dx2 = WFS_sense(displ[i],0.0,var_space[1])
@@ -367,8 +364,8 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     plt.title('Apply Pure Displacement and Direction errors.')         
     plt.legend()
     axes = plt.gca()
-    axes.set_xlim([-2, 2])
-    axes.set_ylim([-2, 2])
+    axes.set_xlim([-3.5, 3.5])
+    axes.set_ylim([-3.5, 3.5])
     plt.xlabel('offset in x at WFS1 / 1/e^2 radius')
     plt.ylabel('offset in x at WFS2 / 1/e^2 radius')
     textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
@@ -379,8 +376,8 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
 def main():
     #beam_profile()
     #print(TT_corr(1,0))
-    #TT_dep()
-    WFS_dep()
+    TT_dep()
+    #WFS_dep()
     plt.show()
     
 if __name__ == "__main__":

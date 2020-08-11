@@ -23,16 +23,28 @@ wav = 1.064e-3                                                      # wavelength
 z0 = -3550                                                          # input waist location
 b = 1090                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
+z1 = 0.0                                                            # focus inbetween TTs
+b1 = 1875                                                           # Rayleigh Range at focus after OMS
+w1 = np.sqrt(b1 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
+z2 = 0.0                                                            # focus inbetween TTs
+b2 = 1875                                                           # Rayleigh Range at focus after OM1
+w2 = np.sqrt(b2 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
+z3 = 0.0                                                            # focus inbetween TTs
+b3 = 696                                                            # Rayleigh Range at focus after OM2
+w3 = np.sqrt(b3 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
 space_0 = 1120                                                      # SRM - OFI
 space_1 = 2282                                                      # OFI - OM*S
-space_2 = 1240                                                      # OM*S - OM*1
-space_3 = 1590                                                      # OM*1 - OM*2
-space_4 = 1905                                                      # OM*2 - L1
-space_5 = 320                                                       # L1 - L2
+space_2 = 438                                                       # OM*S - W1
+space_3 = 802                                                       # W1 - OM*1
+space_4 = 230                                                       # OM*1 = W2
+space_5 = 1360                                                      # W2 - OM*2
+space_6 = 1228                                                      # OM*2 - W2
+space_7 = 677                                                       # W3 - L1
+space_8 = 320                                                       # L1 - L2
 var_space = (210, 580)                                              # L2 - WFS1, L2 - WFS2)
-space_6 = 1000                                                      # L2 - end
+space_9 = 395                                                       # L2 - waist between WFS
 FI = -17100                                                         # OFI lens
 R1 = 5700                                                           # ROC of OM*1
 R2 = 2300                                                           # ROC of OM*2
@@ -201,17 +213,23 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
 def beam_profile(): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. 
     # Calculate beam waist along the way ('True' condition passed to propagate). 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0,True)
-    U = U.lens(FI)
-    U = U.propagate(space_1,True)
-    U = U.propagate(space_2,True)
-    U = U.mirror(R1)
-    U = U.propagate(space_3,True)
+    #U = Beam(w0,z0)
+    #U = U.propagate(space_0, True)
+    #U = U.lens(FI)
+    #U = U.propagate(space_1, True)
+    #U = U.propagate(space_2, True)
+    ##U = Beam(w1,z1)
+    #U = U.propagate(space_3, True)
+    #U = U.mirror(R1)
+    #U = U.propagate(space_4, True)
+    U = Beam(w2,z2)
+    U = U.propagate(space_5, True)
     U = U.mirror(R2)
-    U = U.propagate(space_4,True)
+    U = U.propagate(space_6, True)
+    #U = Beam(w3,z3)
+    U = U.propagate(space_7, True)
     U = U.lens(L1)
-    U = U.propagate(space_5,True)
+    U = U.propagate(space_8, True)
     U = U.lens(L2)
     U = U.propagate(10000 - (space_0 + space_1 + space_2 + space_3 + space_4 + space_5),True)
     width_plot(U.z,U.w)
@@ -232,22 +250,102 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     plt.title('Layout 5f + WFS36. Beam profile calculated with Fourier algorithm.')
     plt.tight_layout()
 
-def WFS_sense(x0,a0,space_6): 
+def Mirror_corr(b,c): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
-    U = Beam(w0,z0,x0,a0)
+    # Mirrors M1 and M2 tilted by angles b and c. Returns, x and k offsets at OMC waist. 
+    U = Beam(w0,z0)
     U = U.propagate(space_0)
     U = U.lens(FI)
     U = U.propagate(space_1)
+    U = U.tilt(b)
     U = U.propagate(space_2)
-    U = U.mirror(R1)
     U = U.propagate(space_3)
-    U = U.mirror(R2)
+    U = U.mirror(R1)
     U = U.propagate(space_4)
-    U = U.lens(L1)
     U = U.propagate(space_5)
-    U = U.lens(L2)
+    U = U.mirror(R2)
+    U = U.tilt(c)
     U = U.propagate(space_6)
+    U = U.propagate(space_7)
+    U = U.lens(L1)
+    U = U.propagate(space_8)
+    U = U.lens(L2)
+    U = U.propagate(space_9)
+    xparams = U.amp_fit()
+    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    kparams = U.freq_fit()
+    Dk = kparams[0] / abs(kparams[2]) # normalise offset to width in k-space
+    return (Dx, Dk)
+
+def Mirror_test(): # Tilt mirrors in turn by equal positive and negative amounts. Return x and k offsets at OMC waist.
+    x1 = []
+    k1 = []
+    x2 = []
+    k2 = []
+    angle = np.linspace(-1.0, 1.0, 2)
+    for i in range(len(angle)):
+        Dx, Dk = Mirror_corr(angle[i],0)
+        x1.append(Dx)
+        k1.append(Dk)
+    for i in range(len(angle)):
+        Dx, Dk = Mirror_corr(0,angle[i])
+        x2.append(Dx)
+        k2.append(Dk)
+    return (x1,k1,x2,k2)
+
+def Mirror_dep():  # Calculates orthogonality between mirrors: angle between unit vectors corresponding to effect of mirror tilt in x-k space. 
+    Mtest = Mirror_test()
+    #orthogonality(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
+    xk_plot(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
+
+def orthogonality(x1,k1,x2,k2): # Calculates phase-separation between two mirrors which, when tilted, cause displacements of (x*,k*) at the OMC waist .
+    v1 = np.array([[x1[-1] - x1[0], k1[-1] - k1[0]]])
+    v2 = np.array([[x2[-1] - x2[0]], [k2[-1] - k2[0]]])
+    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
+    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
+    dot_product = np.dot(v1_norm,v2_norm)
+    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
+    #print('%.1f' % (phi_ASC[0,0],))
+    return phi_ASC[0,0]
+
+def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirrors, M1 and M2 are tilted.
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(x1, k1, label = 'M1')                        
+    plt.plot(x2, k2, label = 'M2')                         
+    plt.title('Mirrors tilted through +/- 1 mrad')         
+    plt.legend()
+    axes = plt.gca()
+    axes.set_xlim([-3, 3])
+    axes.set_ylim([-3, 3])
+    plt.xlabel('offset in x at waist between WFS / 1/e^2 radius in x-space')
+    plt.ylabel('offset in k_x at waist between WFS / 1/e^2 radius in k-space')
+    textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1,k1,x2,k2),)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
+    plt.tight_layout()
+
+def WFS_sense(x0,a0,space_9): 
+    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
+    # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
+    #U = Beam(w0,z0,x0,a0)
+    #U = U.propagate(space_0)
+    #U = U.lens(FI)
+    #U = U.propagate(space_1)
+    #U = U.propagate(space_2)
+    #U = Beam(w1,z1,x0,a0)
+    #U = U.propagate(space_3)
+    #U = U.mirror(R1)
+    #U = U.propagate(space_4)
+    #U = Beam(w2,z2,x0,a0)
+    #U = U.propagate(space_5)
+    #U = U.mirror(R2)
+    #U = U.propagate(space_6)
+    U = Beam(w3,z3,x0,a0)
+    U = U.propagate(space_7)
+    U = U.lens(L1)
+    U = U.propagate(space_8)
+    U = U.lens(L2)
+    U = U.propagate(space_9)
     xparams = U.amp_fit()
     Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
     return Dx
@@ -257,8 +355,8 @@ def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and re
     x2_displ = []
     x1_direc = []
     x2_direc = []
-    displ = np.linspace(-1.1, 1.1, 2)
-    direc = np.linspace(-0.3, 0.3, 2)
+    displ = np.linspace(-1.0, 1.0, 2)
+    direc = np.linspace(-1.0, 1.0, 2)
     for i in range(len(displ)):
         Dx1 = WFS_sense(displ[i],0.0,var_space[0])
         Dx2 = WFS_sense(displ[i],0.0,var_space[1])
@@ -292,10 +390,10 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     plt.plot(x1_displ, x2_displ, label = 'displacement')                        
     plt.plot(x1_direc, x2_direc, label = 'direction')                         
     plt.title('Displacement and Direction errors applied at the SRM')         
-    plt.legend()
+    plt.legend(loc = 'upper right')
     axes = plt.gca()
-    axes.set_xlim([-2, 2])
-    axes.set_ylim([-2, 2])
+    axes.set_xlim([-3.5, 3.5])
+    axes.set_ylim([-3.5, 3.5])
     plt.xlabel('offset in x at WFS1 / 1/e^2 radius')
     plt.ylabel('offset in x at WFS2 / 1/e^2 radius')
     textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
@@ -305,7 +403,8 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
 
 def main():
     #beam_profile()
-    WFS_dep()
+    Mirror_dep()
+    #WFS_dep()
     plt.show()
     
 if __name__ == "__main__":
