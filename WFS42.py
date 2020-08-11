@@ -21,8 +21,11 @@ Calculation of:
 # Inputs
 wav = 1.064e-3                                                      # wavelength in mm
 z0 = -3550                                                          # input waist location
-b = 1090                                                            # input Rayleigh range
-w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
+b0 = 1090                                                           # input Rayleigh range
+w0 = np.sqrt(b0 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
+z1 = 0.0                                                            # focus inbetween TTs
+b1 = 0.261                                                          # Rayleigh Range at focus inbetween TTs
+w1 = np.sqrt(b1 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
 space_0 = 1120                                                      # SRM - L0
@@ -307,21 +310,12 @@ def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirr
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
 
-def WFS_sense(displ,direc,space_7): 
+def WFS_sense(a0,x0,space_7): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
     # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
-    U = Beam(w0,z0)
-    U = U.tilt(direc)
-    U = U.propagate(space_0)
-    U = U.lens(FI)
-    U = U.propagate(space_1)
-    U = U.lens(L1)
-    U = U.propagate(space_2)
-    #U = U.tilt(0.0)
-    U = U.propagate(space_3)
-    U = U.tilt(displ)
+    U = Beam(w1,z1,x0,0.0)
+    U = U.tilt(a0)
     U = U.propagate(space_4)
-    #U = U.tilt(0.0)
     U = U.propagate(space_5)
     U = U.lens(L2)
     U = U.propagate(space_6)
@@ -336,8 +330,8 @@ def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and re
     x2_displ = []
     x1_direc = []
     x2_direc = []
-    displ = np.linspace(-1.0, 1.0, 2)
-    direc = np.linspace(-1.0, 1.0, 2)
+    displ = np.linspace(-20.0, 20.0, 2)
+    direc = np.linspace(-0.1, 0.1, 2)
     for i in range(len(displ)):
         Dx1 = WFS_sense(displ[i],0.0,var_space[0])
         Dx2 = WFS_sense(displ[i],0.0,var_space[1])
@@ -370,7 +364,7 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(x1_displ, x2_displ, label = 'displacement')                        
     plt.plot(x1_direc, x2_direc, label = 'direction')                         
-    plt.title('Displacement and Direction errors applied at the SRM')         
+    plt.title('Apply Pure Displacement and Direction errors.')         
     plt.legend()
     axes = plt.gca()
     axes.set_xlim([-2, 2])
