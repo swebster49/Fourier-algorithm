@@ -359,8 +359,8 @@ def WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc): # Calculates phase-s
 
 def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at WFS1 vs displacement at WFS2 when displacement and direction errors are applied at the SRM. 
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(x1_displ, x2_displ, label = 'displacement')                        
-    plt.plot(x1_direc, x2_direc, label = 'direction')                         
+    plt.plot(x1_displ, x2_displ, color = 'blue', label = 'displacement')                        
+    plt.plot(x1_direc, x2_direc, color = 'orange', label = 'direction')                         
     plt.title('Apply Pure Displacement and Direction errors.')         
     plt.legend()
     axes = plt.gca()
@@ -373,11 +373,40 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
 
+def sen_dep(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
+    s7 = np.linspace(0,1000,21)
+    Dx_displ = []
+    Dx_direc = []
+    for i in range(len(s7)):
+        Dx = WFS_sense(1.0,0.0,int(s7[i]))
+        Dx_displ.append(Dx)
+    for i in range(len(s7)):
+        Dx = WFS_sense(0.0,1.0,int(s7[i]))
+        Dx_direc.append(Dx)
+    sen_plot(s7,Dx_displ,Dx_direc)
+
+def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L3 for pure displacement and direction errors
+    fig, ax1 = plt.subplots()
+    ax1.plot(dist,Dx_displ, color = 'blue', label = 'displacement error')
+    ax1.plot(dist,Dx_direc, color = 'orange', label = 'direction error')
+    ax1.set_xlim([0, 1000])
+    ax1.set_ylim([-3.5, 3.5])
+    ax1.vlines(x = var_space[0], ymin = -3.5, ymax = +3.5,\
+    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed',label = 'WFS')
+    ax1.vlines(x = var_space[1], ymin = -3.5, ymax = +3.5,\
+    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed')#,label = 'WFS2')
+    ax1.grid(which = 'major', axis = 'both')
+    plt.title('x-offset for pure displacement and direction errors at Waist')     
+    ax1.set_xlabel('distance from L3 / mm')
+    ax1.set_ylabel('centre of beam / 1/e^2 radius')
+    fig.legend(loc = 'upper right', bbox_to_anchor=(0.9, 0.88))
+
 def main():
     #beam_profile()
     #print(TT_corr(1,0))
-    TT_dep()
+    #TT_dep()
     #WFS_dep()
+    sen_dep()
     plt.show()
     
 if __name__ == "__main__":

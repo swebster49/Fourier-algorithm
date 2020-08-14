@@ -24,13 +24,13 @@ z0 = -3550                                                          # input wais
 b = 1090                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 z1 = 0.0                                                            # focus inbetween TTs
-b1 = 1875                                                           # Rayleigh Range at focus after OMS
+b1 = 1875                                                           # Rayleigh Range at focus after OMS (W1)
 w1 = np.sqrt(b1 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 z2 = 0.0                                                            # focus inbetween TTs
-b2 = 1875                                                           # Rayleigh Range at focus after OM1
+b2 = 1875                                                           # Rayleigh Range at focus after OM1 (W2)
 w2 = np.sqrt(b2 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 z3 = 0.0                                                            # focus inbetween TTs
-b3 = 696                                                            # Rayleigh Range at focus after OM2
+b3 = 696                                                            # Rayleigh Range at focus after OM2 (W3)
 w3 = np.sqrt(b3 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
@@ -40,17 +40,23 @@ space_2 = 438                                                       # OM*S - W1
 space_3 = 802                                                       # W1 - OM*1
 space_4 = 230                                                       # OM*1 = W2
 space_5 = 1360                                                      # W2 - OM*2
-space_6 = 1228                                                      # OM*2 - W2
-space_7 = 677                                                       # W3 - L1
-space_8 = 320                                                       # L1 - L2
-var_space = (210, 580)                                              # L2 - WFS1, L2 - WFS2)
-space_9 = 395                                                       # L2 - waist between WFS
+space_6 = 1228                                                      # OM*2 - W3
 FI = -17100                                                         # OFI lens
 R1 = 5700                                                           # ROC of OM*1
 R2 = 2300                                                           # ROC of OM*2
-L1 = 1000 * (1 / 1.220)                                             # L1 before WFS36
-L2 = 1000 * (1 / 1.755)                                              # L2 before WFS36
 
+#OMC-A
+space_7 = 202                                                       # W3 - L1
+var_space = (140, 510)                                              # L1 - QPD1, L1 - QPD2)
+space_8 = 325                                                       # L1 - waist between QPDs  
+L1 = 1000 * (1 / 2.71)                                              # L1 before QPDs
+'''
+#OMC-B
+space_7 = 327                                                       # W3 - L1
+var_space = (165, 535)                                              # L1 - QPD1, L1 - QPD2)
+space_8 = 350                                                       # L1 - waist between QPDs  
+L1 = 1000 * (1 / 2.79)                                              # L1 before QPDs
+'''
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
     Attributes: 
@@ -213,25 +219,23 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
 def beam_profile(): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. 
     # Calculate beam waist along the way ('True' condition passed to propagate). 
-    #U = Beam(w0,z0)
-    #U = U.propagate(space_0, True)
-    #U = U.lens(FI)
-    #U = U.propagate(space_1, True)
-    #U = U.propagate(space_2, True)
-    ##U = Beam(w1,z1)
-    #U = U.propagate(space_3, True)
-    #U = U.mirror(R1)
-    #U = U.propagate(space_4, True)
-    U = Beam(w2,z2)
+    U = Beam(w0,z0)
+    U = U.propagate(space_0, True)
+    U = U.lens(FI)
+    U = U.propagate(space_1, True)
+    U = U.propagate(space_2, True)
+    #U = Beam(w1,z1)
+    U = U.propagate(space_3, True)
+    U = U.mirror(R1)
+    U = U.propagate(space_4, True)
+    #U = Beam(w2,z2)
     U = U.propagate(space_5, True)
     U = U.mirror(R2)
     U = U.propagate(space_6, True)
     #U = Beam(w3,z3)
     U = U.propagate(space_7, True)
     U = U.lens(L1)
-    U = U.propagate(space_8, True)
-    U = U.lens(L2)
-    U = U.propagate(10000 - (space_0 + space_1 + space_2 + space_3 + space_4 + space_5),True)
+    U = U.propagate(10000 - (space_0 + space_1 + space_2 + space_3 + space_4 + space_5 + space_6 + space_7),True)
     width_plot(U.z,U.w)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
@@ -247,7 +251,7 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
     axes.set_xlabel('Distance from SRM / m')
     axes.set_ylabel('Beam size / mm')
-    plt.title('Layout 5f + WFS36. Beam profile calculated with Fourier algorithm.')
+    plt.title('Reflection from OMC-A. Beam profile calculated with Fourier algorithm.')
     plt.tight_layout()
 
 def Mirror_corr(b,c): 
@@ -269,8 +273,6 @@ def Mirror_corr(b,c):
     U = U.propagate(space_7)
     U = U.lens(L1)
     U = U.propagate(space_8)
-    U = U.lens(L2)
-    U = U.propagate(space_9)
     xparams = U.amp_fit()
     Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
@@ -312,19 +314,19 @@ def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirr
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(x1, k1, label = 'M1')                        
     plt.plot(x2, k2, label = 'M2')                         
-    plt.title('Mirrors tilted through +/- 1 mrad')         
+    plt.title('Reflection from OMC-B. Mirrors tilted through +/- 1 mrad. ')         
     plt.legend()
     axes = plt.gca()
     axes.set_xlim([-3, 3])
     axes.set_ylim([-3, 3])
-    plt.xlabel('offset in x at waist between WFS / 1/e^2 radius in x-space')
-    plt.ylabel('offset in k_x at waist between WFS / 1/e^2 radius in k-space')
+    plt.xlabel('offset in x at waist between QPD / 1/e^2 radius in x-space')
+    plt.ylabel('offset in k_x at waist between QPD / 1/e^2 radius in k-space')
     textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1,k1,x2,k2),)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
 
-def WFS_sense(x0,a0,space_9): 
+def WFS_sense(x0,a0,space_8): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
     # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
     #U = Beam(w0,z0,x0,a0)
@@ -344,8 +346,6 @@ def WFS_sense(x0,a0,space_9):
     U = U.propagate(space_7)
     U = U.lens(L1)
     U = U.propagate(space_8)
-    U = U.lens(L2)
-    U = U.propagate(space_9)
     xparams = U.amp_fit()
     Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
     return Dx
@@ -394,24 +394,24 @@ def WFS_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=4): # Plots displacement at W
     axes = plt.gca()
     axes.set_xlim([-3.5, 3.5])
     axes.set_ylim([-3.5, 3.5])
-    plt.xlabel('offset in x at WFS1 / 1/e^2 radius')
-    plt.ylabel('offset in x at WFS2 / 1/e^2 radius')
+    plt.xlabel('offset in x at QPD1 / 1/e^2 radius')
+    plt.ylabel('offset in x at QPD2 / 1/e^2 radius')
     textstr = 'Orthogonality: %.1f˚' % (WFS_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
 
 def sen_dep(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
-    s9 = np.linspace(0,1000,21)
+    s8 = np.linspace(0,1000,21)
     Dx_displ = []
     Dx_direc = []
-    for i in range(len(s9)):
-        Dx = WFS_sense(1.0,0.0,int(s9[i]))
+    for i in range(len(s8)):
+        Dx = WFS_sense(1.0,0.0,int(s8[i]))
         Dx_displ.append(Dx)
-    for i in range(len(s9)):
-        Dx = WFS_sense(0.0,1.0,int(s9[i]))
+    for i in range(len(s8)):
+        Dx = WFS_sense(0.0,1.0,int(s8[i]))
         Dx_direc.append(Dx)
-    sen_plot(s9,Dx_displ,Dx_direc)
+    sen_plot(s8,Dx_displ,Dx_direc)
 
 def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L2 for pure displacement and direction errors
     fig, ax1 = plt.subplots()
@@ -420,21 +420,21 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
     ax1.set_xlim([0, 1000])
     ax1.set_ylim([-3, 3])
     ax1.vlines(x = var_space[0], ymin = -3, ymax = +3,\
-    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed',label = 'WFS')
+    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed',label = 'QPD')
     ax1.vlines(x = var_space[1], ymin = -3, ymax = +3,\
-    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed')#,label = 'WFS2')
+    linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed')#,label = 'QPD2')
     ax1.grid(which = 'major', axis = 'both')
     plt.title('Apply pure displacement and direction errors at W3')     
-    ax1.set_xlabel('distance from L2 / mm')
+    ax1.set_xlabel('distance from L1 / mm')
     ax1.set_ylabel('offset in x / 1/e^2 radius')
     fig.legend(loc = 'upper right', bbox_to_anchor=(0.95, 0.92))
     fig.tight_layout()
 
 def main():
-    #beam_profile()
+    beam_profile()
     #Mirror_dep()
     #WFS_dep()
-    sen_dep()
+    #sen_dep()
     plt.show()
     
 if __name__ == "__main__":
