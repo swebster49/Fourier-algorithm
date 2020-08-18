@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import beam as beam
 from scipy.optimize import curve_fit as fit
 from scipy.fft import fft #as fft
 from scipy.fft import ifft #as ifft
@@ -20,24 +21,21 @@ Calculation of:
 
 # Inputs
 wav = 1.064e-3                                                      # wavelength in mm
-# Beam Parameter at SR2
-z0 = -20536                                                         # input waist location
-b = 2090                                                            # input Rayleigh range
+z0 = -3000                                                          # input waist location
+b = 1000                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
-space_0 = 15756                                                     # SR2 - SRM
-space_1 = 1120                                                      # SRM - L0
-space_2 = 1152                                                      # L0 - OM0
-space_3 = 610                                                       # OM0 - L1
-space_4 = 330                                                       # L1 - QPD
-z_L1 = (space_0 + space_1 + space_2 + space_3)
-z_QPD = (space_0 + space_1 + space_2 + space_3 + space_4)
-n1064 = 1.44963
-R_SRM = 5694
-F_SRM = R_SRM / (n1064 - 1)
-F_L0 = -17100                                                         # OFI lens
-F_L1 = 1200                                                              # L1
+space_0 = 2000                                                      # Start - M1
+space_1 = 1000                                                      # M1 - W1
+space_2 = 1000                                                      # W1 - M2
+space_3 = 2000                                                      # M2 - L1
+space_4 = 2000                                                      # L1 - S1
+space_5 = 1000                                                      # S1 - W2
+space_6 = 1000                                                      # W2 - S2
+space_7 = 2000                                                      # S2 - End
+var_space = (space_4, space_4 + space_5 + space_6)
+F_L1 = 1670                                                         # L1
 
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
@@ -55,8 +53,8 @@ class Beam:
     def __init__(self, *args): # Initialises amplitude array.
         x0 = 0
         a0 = 0
-        W = 1000                                                                 # Width of window in mm
-        xres = 0.05                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
+        W = 200                                                                 # Width of window in mm
+        xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
         N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
         self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
         self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))       # 1D array representing kx-space from max -ve value to min -ve value
@@ -64,7 +62,7 @@ class Beam:
         self.kx = np.concatenate((self.kpos,self.kneg), axis = 0)               # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
         self.kwav = 2 * np.pi / wav                                             # Magnitude of wave-vector
         self.kz = np.sqrt(self.kwav**2 - self.kx**2)                            # 1D array representing kz-space. Derived from condition for monochromaticity. 
-        self.zres = 20000                                                        # z-resolution in mm: 3000 for most; 50 for beam profile. 
+        self.zres = 5000                                                        # z-resolution in mm: 3000 for most; 50 for beam profile. 
         if len(args) == 2:                                                      # Two arguments: Instantiates Beam object from waist size, w0, and distance to waist, z0. 
             w0 = args[0]
             z0 = args[1]
@@ -203,105 +201,250 @@ def beam_profile():
     # Calculate beam waist along the way ('True' condition passed to propagate). 
     U = Beam(w0,z0)
     U = U.propagate(space_0, True)
-    U = U.lens(F_SRM)
     U = U.propagate(space_1, True)
-    U = U.lens(F_L0)
     U = U.propagate(space_2, True)
     U = U.propagate(space_3, True)
     U = U.lens(F_L1)
-    U = U.propagate(20000 - (space_0 + space_1 + space_2 + space_3),True)
+    U = U.propagate(space_4, True)
+    U = U.propagate(space_5, True)
+    U = U.propagate(space_6, True)
+    U = U.propagate(space_7, True)
     width_plot(U.z,U.w)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
-    zplot = np.asarray(distance_list) - z_L1
+    zplot = 0.001 * np.asarray(distance_list)
     wplot = np.asarray(width_list)
     plt.figure(figsize=(9, 7), dpi=120)
     plt.plot(zplot,wplot, linewidth = 3)
     axes = plt.gca()
-    #axes.set_xlim([0, 20])
-    #axes.set_ylim(0.0,10)
-    #axes.set_xticks(np.linspace(0,20,11))
-    #axes.set_yticks(np.linspace(0.0,10,11))
-    axes.set_xlim([0,1000])
+    axes.set_xlim([0, 12])
     axes.set_ylim(0.0,2)
-    axes.set_xticks(np.linspace(0,1000,21))
+    axes.set_xticks(np.linspace(0,12,13))
     axes.set_yticks(np.linspace(0.0,2,11))
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from L1 / m')
+    axes.set_xlabel('Distance from Start / m')
     axes.set_ylabel('Beam size / mm')
-    plt.title('Beam path from SR2 to QPD-I')
+    #plt.title('Beam path from SR2 to QPD-I')
     plt.tight_layout()
 
-def QPD_sense(x0,a0,space_3): 
+
+def mirror(b,c): 
+    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
+    # Mirrors M1 and M2 tilted by angles b and c. Returns, x and k offsets at OMC waist. 
+    U = Beam(w0,z0)
+    U = U.propagate(space_0)
+    U = U.tilt(b)
+    U = U.propagate(space_1)
+    U = U.propagate(space_2)
+    U = U.tilt(c)
+    U = U.propagate(space_3)
+    U = U.lens(F_L1)
+    U = U.propagate(space_4)
+    U = U.propagate(space_5)
+    #U = U.propagate(space_6)
+    #U = U.propagate(space_7)
+    xparams = U.amp_fit()
+    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    kparams = U.freq_fit()
+    Dk = kparams[0] / abs(kparams[2]) # normalise offset to width in k-space
+    return (Dx, Dk)
+
+def mirror_test(): # Tilt mirrors in turn by equal positive and negative amounts. Return x and k offsets at OMC waist.
+    x1 = []
+    k1 = []
+    x2 = []
+    k2 = []
+    angle = np.linspace(-1.0, 1.0, 2)
+    for i in range(len(angle)):
+        Dx, Dk = mirror(angle[i],0)
+        x1.append(Dx)
+        k1.append(Dk)
+    for i in range(len(angle)):
+        Dx, Dk = mirror(0,angle[i])
+        x2.append(Dx)
+        k2.append(Dk)
+    return (x1,k1,x2,k2)
+
+def mirror_dep():  # Calculates orthogonality between mirrors: angle between unit vectors corresponding to effect of mirror tilt in x-k space. 
+    Mtest = mirror_test()
+    #orthogonality(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
+    xk_plot(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
+
+def orthogonality(x1,k1,x2,k2): # Calculates phase-separation between two mirrors which, when tilted, cause displacements of (x*,k*) at the OMC waist .
+    v1 = np.array([[x1[-1] - x1[0], k1[-1] - k1[0]]])
+    v2 = np.array([[x2[-1] - x2[0]], [k2[-1] - k2[0]]])
+    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
+    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
+    dot_product = np.dot(v1_norm,v2_norm)
+    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
+    #print('%.1f' % (phi_ASC[0,0],))
+    return phi_ASC[0,0]
+
+def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirrors, M1 and M2 are tilted.
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(x1, k1, label = 'M1')                        
+    plt.plot(x2, k2, label = 'M2')                         
+    plt.title('Tilt mirrors, M1 & M2. ')         
+    plt.legend()
+    axes = plt.gca()
+    axes.set_xlim([-3, 3])
+    axes.set_ylim([-3, 3])
+    plt.xlabel('offset in x at W2 / 1/e^2 radius in x-space')
+    plt.ylabel('offset in k_x at W2 / 1/e^2 radius in k-space')
+    textstr = 'Orthogonality: %.0f˚' % (orthogonality(x1,k1,x2,k2),)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
+    plt.tight_layout()
+    
+def sensor(x0,a0,space_4): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
     # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
-    U = Beam(w0,z0,x0,a0)
-    U = U.propagate(space_0)
-    U = U.lens(F_SRM)
-    U = U.propagate(space_1)
-    U = U.lens(F_L0)
+    U = Beam(w0,0.0,x0,a0)
     U = U.propagate(space_2)
-    U = U.lens(F_L1)
     U = U.propagate(space_3)
+    U = U.lens(F_L1)
+    U = U.propagate(space_4)
     xparams = U.amp_fit()
     Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
     return Dx
 
-def sen_dep(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
-    s3 = np.linspace(0,1000,21)
-    xoff = []
-    for i in range(len(s3)):
-        Dx = QPD_sense(0.0,0.1,int(s3[i]))
-        xoff.append(Dx)
-    sen_plot(s3,xoff)
+def sensor_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
+    x1_displ = []
+    x2_displ = []
+    x1_direc = []
+    x2_direc = []
+    displ = np.linspace(-1.0, 1.0, 2)
+    direc = np.linspace(-1.0, 1.0, 2)
+    for i in range(len(displ)):
+        Dx1 = sensor(displ[i],0.0,var_space[0])
+        Dx2 = sensor(displ[i],0.0,var_space[1])
+        x1_displ.append(Dx1)
+        x2_displ.append(Dx2)
+    for i in range(len(direc)):
+        Dx1 = sensor(0.0,direc[i],var_space[0])
+        Dx2 = sensor(0.0,direc[i],var_space[1])
+        x1_direc.append(Dx1)
+        x2_direc.append(Dx2)
+    return (x1_displ,x2_displ,x1_direc,x2_direc)
 
-def sen_plot(dist,xoff,n=6): # Plots x offset as function of distance from L2 for pure displacement and direction errors
-    fig, ax1 = plt.subplots()
-    ax1.plot(dist, xoff, color = 'blue')
-    ax1.set_xlim([0, 1000])
-    ax1.set_ylim([-3, 3])
-    ax1.grid(which = 'major', axis = 'both')
-    plt.title('Apply tilt to SR2')     
-    ax1.set_xlabel('distance from L1 / mm')
-    ax1.set_ylabel('offset in x / 1/e^2 radius')
-    ax1.set_xticks(np.linspace(0,1000,21))
-    #ax1.set_yticks(np.linspace(0.0,2,11))
-    #fig.legend(loc = 'upper right', bbox_to_anchor=(0.95, 0.92))
-    fig.tight_layout()
+def sensor_dep():  # Calculates x offsets at WFS1 and WFS2 for +/- dislpacement/direction errors at SRM.
+        Stest = sensor_test(var_space)
+        #WFS_orthogonality(Stest[0],Stest[1],Stest[2],Stest[3])
+        sensor_plot(Stest[0],Stest[1],Stest[2],Stest[3])
+
+def sensor_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc): # Calculates phase-separation between WFS which sense displacement and direction errors upstream.
+    v1 = np.array([[x1_displ[-1] - x1_displ[0], x2_displ[-1] - x2_displ[0]]])
+    v2 = np.array([[x1_direc[-1] - x1_direc[0]], [x2_direc[-1] - x2_direc[0]]])
+    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
+    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
+    dot_product = np.dot(v1_norm,v2_norm)
+    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
+    #print('%.1f' % (phi_ASC[0,0],))
+    return phi_ASC[0,0]
+
+def sensor_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=5): # Plots displacement at WFS1 vs displacement at WFS2 when displacement and direction errors are applied at the SRM. 
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(x1_displ, x2_displ, label = 'displacement')                        
+    plt.plot(x1_direc, x2_direc, label = 'direction')                         
+    axes = plt.gca()
+    axes.set_xlim([-3, 3])
+    axes.set_ylim([-3, 3])
+    plt.title('Apply pure displacement and direction errors at W1')         
+    plt.xlabel('offset in x at S1 / 1/e^2 radius')
+    plt.ylabel('offset in x at S2 / 1/e^2 radius')
+    plt.legend(loc = 'upper right')
+    textstr = 'Orthogonality: %.0f˚' % (sensor_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
+    plt.tight_layout()
+
+def sensor_position(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
+    s4 = np.linspace(0,4000,100)
+    Dx_displ = []
+    Dx_direc = []
+    for i in range(len(s4)):
+        Dx = sensor(1.0,0.0,int(s4[i]))
+        Dx_displ.append(Dx)
+    for i in range(len(s4)):
+        Dx = sensor(0.0,1.0,int(s4[i]))
+        Dx_direc.append(Dx)
+    sensor_position_plot(s4,Dx_displ,Dx_direc)
+
+def sensor_position_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L2 for pure displacement and direction errors
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(dist,Dx_displ, label = 'displacement')
+    plt.plot(dist,Dx_direc, label = 'direction')
+    plt.xlim([0, 4000])
+    plt.ylim([-3, 3])
+    plt.grid(which = 'major', axis = 'both')
+    plt.title('Apply pure displacement and direction errors at W1')     
+    plt.xlabel('distance from L1 / mm')
+    plt.ylabel('offset in x / 1/e^2 radius')
+    plt.legend(loc = 'upper right')
+    plt.tight_layout()
+
+def beam_propagate():
+    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s1 = (space_4 + space_5 + space_6 + space_7) / 1000
+    z1 = z0 / 1000
+    b1 = b / 1000
+    S_L1 = 1 / (F_L1 / 1000)
+    q0 = beam.beamParameter(z1+1j*b1)    
+    q1 = beam.propagate(q0,s0)         
+    q2 = beam.lens(q1,S_L1,0.0)       
+    q3 = beam.propagate(q2,s1)
+    return (q0, q1, q2, q3)
+
+def beam_distance():
+    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s1 = (space_4 + space_5 + space_6 + space_7) / 1000
+    z0 = np.linspace(0,s0,25)                                        
+    z1 = np.linspace(s0, s0 + s1,25)
+    z = np.concatenate((z0,z1),axis= 0)
+    return (z0, z1, z)
+
+def beam_Gouy(q_params,z_params):
+    q0 = q_params[0]
+    q2 = q_params[2]
+    z0 = z_params[0]
+    z1 = z_params[1]
+    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s1 = (space_4 + space_5 + space_6 + space_7) / 1000
+    q0_gouy = beam.gouyPhase(q0,z0)\
+    - beam.gouyPhase(q0,0.0)
+    q2_gouy = beam.gouyPhase(beam.propagate(q2,-s0),z1)\
+    - beam.gouyPhase(q0,0.0)\
+    - (beam.gouyPhase(beam.propagate(q2,-s0),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
+    Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
+    return Gouy_Phase
+
+def plot_Gouy(z, Gouy_Phase, n=7):
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(z, Gouy_Phase*180/np.pi)
+    plt.grid(which = 'both', linestyle='--')
+    plt.xlim(0,12)
+    plt.xticks(np.linspace(0,12,13))
+    plt.ylim(0,360)
+    plt.yticks(np.linspace(0,360,13))
+    plt.grid(which = 'both', linestyle='--')
+    plt.xlabel('Distance from Start / m')
+    plt.ylabel('Gouy Phase (degree)')
+    plt.tight_layout()  # otherwise the right y-label is slightly clipped
+
+def Gouy():
+    q_params = beam_propagate()
+    z_params = beam_distance()
+    z = z_params[2]
+    Gouy_Phase = beam_Gouy(q_params,z_params)
+    plot_Gouy(z, Gouy_Phase)
 
 def main():
-    beam_profile()
-    sen_dep()
+    #beam_profile()
+    #mirror_dep()
+    #sensor_dep()
+    sensor_position()
+    Gouy()
     plt.show()
     
 if __name__ == "__main__":
     main()
-
-'''
-def Mirror_corr(b,c): 
-    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # Mirrors M1 and M2 tilted by angles b and c. Returns, x and k offsets at OMC waist. 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0, True)
-    U = U.lens(F_SRM)
-    U = U.propagate(space_1, True)
-    U = U.lens(F_L0)
-    U = U.propagate(space_2, True)
-    U = U.lens(F_L1)
-    U = U.propagate(space_3)
-    xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
-    return Dx
-
-def Mirror_test(): # Tilt mirrors in turn by equal positive and negative amounts. Return x and k offsets at OMC waist.
-    x1 = []
-    angle = np.linspace(-1.0, 1.0, 2)
-    for i in range(len(angle)):
-        Dx= Mirror_corr(angle[i],0)
-        x1.append(Dx)
-    return x1
-
-def Mirror_dep():  # Calculates orthogonality between mirrors: angle between unit vectors corresponding to effect of mirror tilt in x-k space. 
-    Mtest = Mirror_test()
-    #print(Mtest)
-'''
