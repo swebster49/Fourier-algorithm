@@ -53,8 +53,8 @@ class Beam:
     def __init__(self, *args): # Initialises amplitude array.
         x0 = 0
         a0 = 0
-        W = 200                                                                 # Width of window in mm
-        xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
+        W = 600                                                                 # Width of window in mm
+        xres = 0.003                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
         N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
         self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
         self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))       # 1D array representing kx-space from max -ve value to min -ve value
@@ -295,18 +295,6 @@ def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirr
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
-    
-def sensor(x0,a0,space_4): 
-    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
-    U = Beam(w0,0.0,x0,a0)
-    U = U.propagate(space_2)
-    U = U.propagate(space_3)
-    U = U.lens(F_L1)
-    U = U.propagate(space_4)
-    xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
-    return Dx
 
 def sensor_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
     x1_displ = []
@@ -357,36 +345,61 @@ def sensor_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=5): # Plots displacement a
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
     plt.tight_layout()
+    
+def sensor(x0,a0,var_space):#,count): 
+    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
+    # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
+    U = Beam(w0,0.0,x0,a0)
+    if var_space <= 3000:
+        space_A = var_space
+        U = U.propagate(space_A)
+    elif var_space > 3000:
+        space_A = 3000
+        space_B = var_space - 3000
+        U = U.propagate(space_A)
+        U = U.lens(F_L1)
+        U = U.propagate(space_B)
+    xparams = U.amp_fit()
+    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    return Dx
 
-def sensor_position(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
-    s4 = np.linspace(0,4000,100)
+def sensor_position(show = True): # Calculates x offset as a function of distance from L1 for pure displacement and direction errors
+    s4 = np.concatenate((np.linspace(0,3000,31),np.linspace(3100,9000,60)), axis = 0)
     Dx_displ = []
     Dx_direc = []
+    count = 0
     for i in range(len(s4)):
-        Dx = sensor(1.0,0.0,int(s4[i]))
+        Dx = sensor(1.0,0.0,int(s4[i]))#,count)
         Dx_displ.append(Dx)
+        #if s4[i] == 3000:
+        #    count += 1
     for i in range(len(s4)):
-        Dx = sensor(0.0,1.0,int(s4[i]))
+        Dx = sensor(0.0,1.0,int(s4[i]))#,count)
         Dx_direc.append(Dx)
-    sensor_position_plot(s4,Dx_displ,Dx_direc)
+        #if s4[i] == 3000:
+        #    count += 1
+    if show:
+        sensor_position_plot(s4,Dx_displ,Dx_direc)
+    return (Dx_displ,Dx_direc)
 
-def sensor_position_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L2 for pure displacement and direction errors
+def sensor_position_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L1 for pure displacement and direction errors
+    d_plot = dist / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(dist,Dx_displ, label = 'displacement')
-    plt.plot(dist,Dx_direc, label = 'direction')
-    plt.xlim([0, 4000])
+    plt.plot(d_plot,Dx_displ, label = 'displacement')
+    plt.plot(d_plot,Dx_direc, label = 'direction')
+    plt.xlim([0, 9])
     plt.ylim([-3, 3])
     plt.grid(which = 'major', axis = 'both')
     plt.title('Apply pure displacement and direction errors at W1')     
-    plt.xlabel('distance from L1 / mm')
+    plt.xlabel('distance from W1 / mm')
     plt.ylabel('offset in x / 1/e^2 radius')
     plt.legend(loc = 'upper right')
     plt.tight_layout()
 
 def beam_propagate():
-    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_2 + space_3) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
-    z1 = z0 / 1000
+    z1 = 0.0
     b1 = b / 1000
     S_L1 = 1 / (F_L1 / 1000)
     q0 = beam.beamParameter(z1+1j*b1)    
@@ -396,10 +409,10 @@ def beam_propagate():
     return (q0, q1, q2, q3)
 
 def beam_distance():
-    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_2 + space_3) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
-    z0 = np.linspace(0,s0,25)                                        
-    z1 = np.linspace(s0, s0 + s1,25)
+    z0 = np.linspace(0,s0,31)                                        
+    z1 = np.linspace(s0 + 0.1, s0 + s1, 60)
     z = np.concatenate((z0,z1),axis= 0)
     return (z0, z1, z)
 
@@ -408,43 +421,79 @@ def beam_Gouy(q_params,z_params):
     q2 = q_params[2]
     z0 = z_params[0]
     z1 = z_params[1]
-    s0 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_2 + space_3) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
     q0_gouy = beam.gouyPhase(q0,z0)\
     - beam.gouyPhase(q0,0.0)
-    q2_gouy = beam.gouyPhase(beam.propagate(q2,-s0),z1)\
+    q2_gouy = beam.gouyPhase(beam.propagate(q2,-(s0 + 0.1)),z1)\
     - beam.gouyPhase(q0,0.0)\
-    - (beam.gouyPhase(beam.propagate(q2,-s0),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
+    - (beam.gouyPhase(beam.propagate(q2,-(s0+0.1)),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
     Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
+    return Gouy_Phase
+
+def Gouy(show = True): # Calculates Gouy phase as a function of distance
+    q_params = beam_propagate()
+    z_params = beam_distance()
+    z = z_params[2]
+    Gouy_Phase = beam_Gouy(q_params,z_params)
+    if show:
+        plot_Gouy(z, Gouy_Phase)
     return Gouy_Phase
 
 def plot_Gouy(z, Gouy_Phase, n=7):
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
-    plt.xlim(0,12)
-    plt.xticks(np.linspace(0,12,13))
-    plt.ylim(0,360)
-    plt.yticks(np.linspace(0,360,13))
+    plt.xlim(0,9)
+    plt.xticks(np.linspace(0,9,10))
+    plt.ylim(0,270)
+    plt.yticks(np.linspace(0,270,10))
     plt.grid(which = 'both', linestyle='--')
-    plt.xlabel('Distance from Start / m')
+    plt.xlabel('Distance from W1 / m')
     plt.ylabel('Gouy Phase (degree)')
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
 
-def Gouy():
-    q_params = beam_propagate()
-    z_params = beam_distance()
-    z = z_params[2]
-    Gouy_Phase = beam_Gouy(q_params,z_params)
-    plot_Gouy(z, Gouy_Phase)
+def sense_vs_Gouy():
+    Sensors = sensor_position(False)
+    Gouy_Phase = Gouy(False)
+    sensor_vs_Gouy_plot(Gouy_Phase,Sensors[0],Sensors[1])
+
+def sensor_vs_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,n=8): # Plots x offset as function of distance from L1 for pure displacement and direction errors
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement')
+    plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction')
+    plt.xlim([0, 270])
+    plt.xticks(np.linspace(0,270,10))
+    plt.ylim([-3, 3])
+    plt.grid(which = 'major', axis = 'both')
+    plt.grid(which = 'minor', axis = 'both')
+    plt.title('Apply pure displacement and direction errors at W1')     
+    plt.xlabel('Gouy phase separation from W1 / mm')
+    plt.ylabel('offset in x / 1/e^2 radius')
+    plt.legend(loc = 'upper right')
+    plt.tight_layout()
 
 def main():
     #beam_profile()
     #mirror_dep()
     #sensor_dep()
-    sensor_position()
-    Gouy()
+    #sensor_position()
+    #Gouy()
+    sense_vs_Gouy()
     plt.show()
     
 if __name__ == "__main__":
     main()
+
+'''
+elif var_space == 3000:
+    if count == 0:
+        space_A = var_space
+        U = U.propagate(space_A)
+    elif count == 1:
+        space_A = 3000
+        #space_B = var_space - 3000
+        U = U.propagate(space_A)
+        #U = U.lens(F_L1)
+        #U = U.propagate(space_B)  
+'''
