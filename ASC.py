@@ -427,8 +427,8 @@ def main():
     #beam_profile()
     #print(simple_correction(0,0))
     #simple_corr_dep()
-    #corr_dep()
-    sen_dep()
+    corr_dep()
+    #sen_dep()
     plt.show()
     
 if __name__ == "__main__":

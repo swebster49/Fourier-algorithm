@@ -53,8 +53,8 @@ class Beam:
     def __init__(self, *args): # Initialises amplitude array.
         x0 = 0
         a0 = 0
-        W = 600                                                                 # Width of window in mm
-        xres = 0.003                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
+        W = 200                                                                 # Width of window in mm
+        xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
         N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
         self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
         self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))       # 1D array representing kx-space from max -ve value to min -ve value
@@ -196,163 +196,25 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     est_params, est_err = fit(Gaussian, space, Array, p0 = init_params)
     return est_params # [offset, amplitude, width]
 
-def beam_profile(): 
-    # Runs series of methods corresponding to propagation of beam through various elements in system. 
-    # Calculate beam waist along the way ('True' condition passed to propagate). 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0, True)
-    U = U.propagate(space_1, True)
-    U = U.propagate(space_2, True)
-    U = U.propagate(space_3, True)
-    U = U.lens(F_L1)
-    U = U.propagate(space_4, True)
-    U = U.propagate(space_5, True)
-    U = U.propagate(space_6, True)
-    U = U.propagate(space_7, True)
-    width_plot(U.z,U.w)
+###########################################################################################################################################
+# Start of Code which combines calculation of beam offsets using Fourier algorithm with calculation of Gouy phasee using ABCD Matrix method
+###########################################################################################################################################
 
-def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
-    zplot = 0.001 * np.asarray(distance_list)
-    wplot = np.asarray(width_list)
-    plt.figure(figsize=(9, 7), dpi=120)
-    plt.plot(zplot,wplot, linewidth = 3)
-    axes = plt.gca()
-    axes.set_xlim([0, 12])
-    axes.set_ylim(0.0,2)
-    axes.set_xticks(np.linspace(0,12,13))
-    axes.set_yticks(np.linspace(0.0,2,11))
-    plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from Start / m')
-    axes.set_ylabel('Beam size / mm')
-    #plt.title('Beam path from SR2 to QPD-I')
-    plt.tight_layout()
-
-
-def mirror(b,c): 
-    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # Mirrors M1 and M2 tilted by angles b and c. Returns, x and k offsets at OMC waist. 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0)
-    U = U.tilt(b)
-    U = U.propagate(space_1)
-    U = U.propagate(space_2)
-    U = U.tilt(c)
-    U = U.propagate(space_3)
-    U = U.lens(F_L1)
-    U = U.propagate(space_4)
-    U = U.propagate(space_5)
-    #U = U.propagate(space_6)
-    #U = U.propagate(space_7)
-    xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
-    kparams = U.freq_fit()
-    Dk = kparams[0] / abs(kparams[2]) # normalise offset to width in k-space
-    return (Dx, Dk)
-
-def mirror_test(): # Tilt mirrors in turn by equal positive and negative amounts. Return x and k offsets at OMC waist.
-    x1 = []
-    k1 = []
-    x2 = []
-    k2 = []
-    angle = np.linspace(-1.0, 1.0, 2)
-    for i in range(len(angle)):
-        Dx, Dk = mirror(angle[i],0)
-        x1.append(Dx)
-        k1.append(Dk)
-    for i in range(len(angle)):
-        Dx, Dk = mirror(0,angle[i])
-        x2.append(Dx)
-        k2.append(Dk)
-    return (x1,k1,x2,k2)
-
-def mirror_dep():  # Calculates orthogonality between mirrors: angle between unit vectors corresponding to effect of mirror tilt in x-k space. 
-    Mtest = mirror_test()
-    #orthogonality(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
-    xk_plot(Mtest[0],Mtest[1],Mtest[2],Mtest[3])
-
-def orthogonality(x1,k1,x2,k2): # Calculates phase-separation between two mirrors which, when tilted, cause displacements of (x*,k*) at the OMC waist .
-    v1 = np.array([[x1[-1] - x1[0], k1[-1] - k1[0]]])
-    v2 = np.array([[x2[-1] - x2[0]], [k2[-1] - k2[0]]])
-    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
-    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
-    dot_product = np.dot(v1_norm,v2_norm)
-    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
-    #print('%.1f' % (phi_ASC[0,0],))
-    return phi_ASC[0,0]
-
-def xk_plot(x1,k1,x2,k2,n=4): # Plots displacement in x-k space caused when mirrors, M1 and M2 are tilted.
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(x1, k1, label = 'M1')                        
-    plt.plot(x2, k2, label = 'M2')                         
-    plt.title('Tilt mirrors, M1 & M2. ')         
-    plt.legend()
-    axes = plt.gca()
-    axes.set_xlim([-3, 3])
-    axes.set_ylim([-3, 3])
-    plt.xlabel('offset in x at W2 / 1/e^2 radius in x-space')
-    plt.ylabel('offset in k_x at W2 / 1/e^2 radius in k-space')
-    textstr = 'Orthogonality: %.0f˚' % (orthogonality(x1,k1,x2,k2),)
-    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
-    plt.tight_layout()
-
-def sensor_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
-    x1_displ = []
-    x2_displ = []
-    x1_direc = []
-    x2_direc = []
-    displ = np.linspace(-1.0, 1.0, 2)
-    direc = np.linspace(-1.0, 1.0, 2)
-    for i in range(len(displ)):
-        Dx1 = sensor(displ[i],0.0,var_space[0])
-        Dx2 = sensor(displ[i],0.0,var_space[1])
-        x1_displ.append(Dx1)
-        x2_displ.append(Dx2)
-    for i in range(len(direc)):
-        Dx1 = sensor(0.0,direc[i],var_space[0])
-        Dx2 = sensor(0.0,direc[i],var_space[1])
-        x1_direc.append(Dx1)
-        x2_direc.append(Dx2)
-    return (x1_displ,x2_displ,x1_direc,x2_direc)
-
-def sensor_dep():  # Calculates x offsets at WFS1 and WFS2 for +/- dislpacement/direction errors at SRM.
-        Stest = sensor_test(var_space)
-        #WFS_orthogonality(Stest[0],Stest[1],Stest[2],Stest[3])
-        sensor_plot(Stest[0],Stest[1],Stest[2],Stest[3])
-
-def sensor_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc): # Calculates phase-separation between WFS which sense displacement and direction errors upstream.
-    v1 = np.array([[x1_displ[-1] - x1_displ[0], x2_displ[-1] - x2_displ[0]]])
-    v2 = np.array([[x1_direc[-1] - x1_direc[0]], [x2_direc[-1] - x2_direc[0]]])
-    v1_norm = v1 / np.sqrt(v1[0,0]**2 + v1[0,1]**2)
-    v2_norm = v2 / np.sqrt(v2[0,0]**2 + v2[1,0]**2)
-    dot_product = np.dot(v1_norm,v2_norm)
-    phi_ASC = (180 / np.pi) * np.arccos(dot_product)
-    #print('%.1f' % (phi_ASC[0,0],))
-    return phi_ASC[0,0]
-
-def sensor_plot(x1_displ,x2_displ,x1_direc,x2_direc,n=5): # Plots displacement at WFS1 vs displacement at WFS2 when displacement and direction errors are applied at the SRM. 
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(x1_displ, x2_displ, label = 'displacement')                        
-    plt.plot(x1_direc, x2_direc, label = 'direction')                         
-    axes = plt.gca()
-    axes.set_xlim([-3, 3])
-    axes.set_ylim([-3, 3])
-    plt.title('Apply pure displacement and direction errors at W1')         
-    plt.xlabel('offset in x at S1 / 1/e^2 radius')
-    plt.ylabel('offset in x at S2 / 1/e^2 radius')
-    plt.legend(loc = 'upper right')
-    textstr = 'Orthogonality: %.0f˚' % (sensor_orthogonality(x1_displ,x2_displ,x1_direc,x2_direc),)
-    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10,verticalalignment='top', bbox=props)
-    plt.tight_layout()
-    
-def sensor(x0,a0,var_space):#,count): 
-    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
+def sensor(x0,a0,var_space,count=0): # Propagates beam from W1 to sensor. Variable distance between W1 and sensor. Displacement and direction errors applied at W1. Handles cases with sensor before and after lens. 
     U = Beam(w0,0.0,x0,a0)
-    if var_space <= 3000:
+    if var_space < 3000:
         space_A = var_space
         U = U.propagate(space_A)
+    elif int(var_space) == 3000:
+        if count == 0:
+            space_A = var_space
+            U = U.propagate(space_A)
+        elif count == 1:
+            space_A = 3000
+            space_B = var_space - 3000
+            U = U.propagate(space_A)
+            U = U.lens(F_L1)
+            U = U.propagate(space_B)
     elif var_space > 3000:
         space_A = 3000
         space_B = var_space - 3000
@@ -360,43 +222,44 @@ def sensor(x0,a0,var_space):#,count):
         U = U.lens(F_L1)
         U = U.propagate(space_B)
     xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    Dx = xparams[0] / abs(xparams[2])
     return Dx
 
-def sensor_position(show = True): # Calculates x offset as a function of distance from L1 for pure displacement and direction errors
-    s4 = np.concatenate((np.linspace(0,3000,31),np.linspace(3100,9000,60)), axis = 0)
+def sensor_offset_distance(show = False): # Calculates x-offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
+    s4 = np.concatenate((np.linspace(0,3000,31),np.linspace(3000,9000,61)), axis = 0)
     Dx_displ = []
     Dx_direc = []
     count = 0
     for i in range(len(s4)):
-        Dx = sensor(1.0,0.0,int(s4[i]))#,count)
+        Dx = sensor(1.0,0.0,int(s4[i]),count)
         Dx_displ.append(Dx)
-        #if s4[i] == 3000:
-        #    count += 1
+        if int(s4[i]) == 3000:
+            count += 1
+    count = 0
     for i in range(len(s4)):
-        Dx = sensor(0.0,1.0,int(s4[i]))#,count)
+        Dx = sensor(0.0,1.0,int(s4[i]),count)
         Dx_direc.append(Dx)
-        #if s4[i] == 3000:
-        #    count += 1
+        if int(s4[i]) == 3000:
+            count += 1
     if show:
-        sensor_position_plot(s4,Dx_displ,Dx_direc)
+        sensor_offset_distance_plot(s4,Dx_displ,Dx_direc)
     return (Dx_displ,Dx_direc)
 
-def sensor_position_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distance from L1 for pure displacement and direction errors
+def sensor_offset_distance_plot(dist,Dx_displ,Dx_direc,n=1): # Plots x offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
     d_plot = dist / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(d_plot,Dx_displ, label = 'displacement')
-    plt.plot(d_plot,Dx_direc, label = 'direction')
+    plt.plot(d_plot,Dx_displ, label = 'displacement error')
+    plt.plot(d_plot,Dx_direc, label = 'direction error')
     plt.xlim([0, 9])
     plt.ylim([-3, 3])
     plt.grid(which = 'major', axis = 'both')
-    plt.title('Apply pure displacement and direction errors at W1')     
-    plt.xlabel('distance from W1 / mm')
-    plt.ylabel('offset in x / 1/e^2 radius')
+    plt.title('Apply displacement and direction errors at waist, measure offset at sensor')     
+    plt.xlabel('separation between waist and sensor / m')
+    plt.ylabel('x-offset / 1/e^2 radius')
     plt.legend(loc = 'upper right')
     plt.tight_layout()
 
-def beam_propagate():
+def sensor_propagate(): # Propagates beam from W1 to End
     s0 = (space_2 + space_3) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
     z1 = 0.0
@@ -408,15 +271,15 @@ def beam_propagate():
     q3 = beam.propagate(q2,s1)
     return (q0, q1, q2, q3)
 
-def beam_distance():
+def sensor_distance(): # Develops z-axis array: from W2 to End
     s0 = (space_2 + space_3) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
     z0 = np.linspace(0,s0,31)                                        
-    z1 = np.linspace(s0 + 0.1, s0 + s1, 60)
+    z1 = np.linspace(s0, s0 + s1, 61)
     z = np.concatenate((z0,z1),axis= 0)
     return (z0, z1, z)
 
-def beam_Gouy(q_params,z_params):
+def sensor_Gouy(q_params,z_params): # Develops Gouy-phase array
     q0 = q_params[0]
     q2 = q_params[2]
     z0 = z_params[0]
@@ -425,22 +288,42 @@ def beam_Gouy(q_params,z_params):
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
     q0_gouy = beam.gouyPhase(q0,z0)\
     - beam.gouyPhase(q0,0.0)
-    q2_gouy = beam.gouyPhase(beam.propagate(q2,-(s0 + 0.1)),z1)\
+    q2_gouy = beam.gouyPhase(beam.propagate(q2,-(s0)),z1)\
     - beam.gouyPhase(q0,0.0)\
-    - (beam.gouyPhase(beam.propagate(q2,-(s0+0.1)),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
+    - (beam.gouyPhase(beam.propagate(q2,-(s0)),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
     Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
     return Gouy_Phase
 
-def Gouy(show = True): # Calculates Gouy phase as a function of distance
-    q_params = beam_propagate()
-    z_params = beam_distance()
+def sensor_Gouy_distance(show = False): # Optionally plots Gouy phase as a function of distance
+    q_params = sensor_propagate()
+    z_params = sensor_distance()
     z = z_params[2]
-    Gouy_Phase = beam_Gouy(q_params,z_params)
+    Gouy_Phase = sensor_Gouy(q_params,z_params)
     if show:
-        plot_Gouy(z, Gouy_Phase)
+        Gouy_distance_plot(z, Gouy_Phase)
     return Gouy_Phase
 
-def plot_Gouy(z, Gouy_Phase, n=7):
+def sensor_offset_Gouy():
+    Offsets = sensor_offset_distance()
+    Gouy_Phase = sensor_Gouy_distance()
+    sensor_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1])
+
+def sensor_offset_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,n=2): # Plots x offset at sensor as a function of phase-separation from W1 with displacement and direction errors applied at W1
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement error')
+    plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction error')
+    plt.xlim([0, 270])
+    plt.xticks(np.linspace(0,270,10))
+    plt.ylim([-3, 3])
+    plt.grid(which = 'major', axis = 'both')
+    plt.grid(which = 'minor', axis = 'both')
+    plt.title('Apply displacement and direction errors at waist, measure offset at sensor')     
+    plt.xlabel('Gouy-phase separation between waist and sensor / m')
+    plt.ylabel('x-offset / 1/e^2 radius')
+    plt.legend(loc = 'upper right')
+    plt.tight_layout()
+
+def Gouy_distance_plot(z, Gouy_Phase, n=3):  # Plots Gouy phase as a function of distance
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
@@ -449,51 +332,157 @@ def plot_Gouy(z, Gouy_Phase, n=7):
     plt.ylim(0,270)
     plt.yticks(np.linspace(0,270,10))
     plt.grid(which = 'both', linestyle='--')
-    plt.xlabel('Distance from W1 / m')
-    plt.ylabel('Gouy Phase (degree)')
+    plt.xlabel('Distance to/from waist / m')
+    plt.ylabel('Gouy-Phase separation / ˚')
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
 
-def sense_vs_Gouy():
-    Sensors = sensor_position(False)
-    Gouy_Phase = Gouy(False)
-    sensor_vs_Gouy_plot(Gouy_Phase,Sensors[0],Sensors[1])
+def actuator(var_space,count=0): # Propagates beam from 3 m before W1 to W2. Tilt applied at mirror. Variable distance between mirror and W2. Handles cases with mirror before and after lens. 
+    a = 0.3
+    U = Beam(w0,z0)
+    if var_space > 3000:
+        space_A = 9000 - var_space
+        space_B = var_space - 3000
+        space_C = 3000
+        U = U.propagate(space_A)
+        U = U.tilt(a)
+        U = U.propagate(space_B)
+        U = U.lens(F_L1)
+        U = U.propagate(space_C)
+    elif var_space == 3000:
+        if count == 0:
+            space_A = 9000 - var_space
+            space_B = var_space - 3000
+            space_C = 3000
+            U = U.propagate(space_A)
+            U = U.tilt(a)
+            U = U.propagate(space_B)
+            U = U.lens(F_L1)
+            U = U.propagate(space_C)
+        elif count == 1:
+            space_A = 6000
+            space_B = 3000 - var_space
+            space_C = var_space
+            U = U.propagate(space_A)
+            U = U.lens(F_L1)
+            U = U.propagate(space_B) 
+            U = U.tilt(a)
+            U = U.propagate(space_C)
+    elif var_space < 3000:
+        space_A = 6000
+        space_B = 3000 - var_space
+        space_C = var_space
+        U = U.propagate(space_A)
+        U = U.lens(F_L1)
+        U = U.propagate(space_B) 
+        U = U.tilt(a)
+        U = U.propagate(space_C)
+    xparams = U.amp_fit()
+    kparams = U.freq_fit()
+    Dx = xparams[0] / abs(xparams[2]) 
+    Dk = kparams[0] / abs(kparams[2])
+    return (Dx, Dk)
 
-def sensor_vs_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,n=8): # Plots x offset as function of distance from L1 for pure displacement and direction errors
+def actuator_offset_distance(show = False): # Calculates x-and k-offsets as a function of distance from mirror at which direction correction is applied
+    s = np.concatenate((np.linspace(9000,3000,61),np.linspace(3000,0,31)), axis = 0)
+    Dx_direc = []
+    Dk_direc = []
+    count = 0
+    for i in range(len(s)):
+        Dx, Dk = actuator(int(s[i]),count)
+        Dx_direc.append(Dx)
+        Dk_direc.append(Dk)
+        if int(s[i]) == 3000:
+            count += 1
+    if show:
+        actuator_offset_distance_plot(s,Dx_direc,Dk_direc)
+    return (Dx_direc,Dk_direc)
+
+def actuator_offset_distance_plot(dist,Dx_direc,Dk_direc,n=4): # Plots x- and k- offsets as a function of distance from mirror at which direction correction is applied
+    d_plot = dist / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement')
-    plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction')
+    plt.plot(d_plot,Dx_direc, label = 'x-offset')
+    plt.plot(d_plot,Dk_direc, label = 'k-offset')
+    plt.xlim([0, 9])
+    plt.ylim([-3, 3])
+    plt.grid(which = 'major', axis = 'both')
+    plt.title('Direction correction applied at actuator, measure offsets at waist')     
+    plt.xlabel('separation between actuator and waist / m')
+    plt.ylabel('offset / 1/e^2 radius')
+    plt.legend(loc = 'upper right')
+    plt.tight_layout()
+
+def actuator_propagate(): # Propagates beam (backwards) from W2 to Start
+    s1 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_4 + space_5) / 1000
+    z1 = 0.0
+    b1 = b / 1000
+    S_L1 = 1 / (F_L1 / 1000)
+    q0 = beam.beamParameter(z1+1j*b1)    
+    q1 = beam.propagate(q0,s0)         
+    q2 = beam.lens(q1,S_L1,0.0)       
+    q3 = beam.propagate(q2,s1)
+    return (q0, q1, q2, q3)
+
+def actuator_distance(): # Develops z-axis array: from W2 to Start
+    s1 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_4 + space_5) / 1000
+    z0 = np.linspace(0,s0,31)                                        
+    z1 = np.linspace(s0, s0 + s1, 61)
+    z = np.concatenate((z0,z1),axis= 0)
+    return (z0, z1, z)
+
+def actuator_Gouy(q_params,z_params): # Develops Gouy-phase array
+    q0 = q_params[0]
+    q2 = q_params[2]
+    z0 = z_params[0]
+    z1 = z_params[1]
+    s1 = (space_0 + space_1 + space_2 + space_3) / 1000
+    s0 = (space_4 + space_5) / 1000
+    q0_gouy = beam.gouyPhase(q0,z0)\
+    - beam.gouyPhase(q0,0.0)
+    q2_gouy = beam.gouyPhase(beam.propagate(q2,-(s0)),z1)\
+    - beam.gouyPhase(q0,0.0)\
+    - (beam.gouyPhase(beam.propagate(q2,-(s0)),s0) - beam.gouyPhase(beam.propagate(q0,-0.0),s0))
+    Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
+    return Gouy_Phase
+
+def actuator_Gouy_distance(show = False): # Optionally plots Gouy phase as a function of distance
+    q_params = actuator_propagate()
+    z_params = actuator_distance()
+    z = z_params[2]
+    Gouy_Phase = actuator_Gouy(q_params,z_params)
+    if show:
+        Gouy_distance_plot(z, Gouy_Phase)
+    return Gouy_Phase
+
+def actuator_offset_Gouy(): # 
+    Offsets = actuator_offset_distance()
+    Gouy_Phase = actuator_Gouy_distance()
+    actuator_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1])
+
+def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,n=5): # Plots x- and k-offsets at W2 as function of distance mirror at which a direction correction is applied
+    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'x-offset')
+    plt.plot(Gouy_Phase*180/np.pi, Dk_direc, label = 'k-offset')
     plt.xlim([0, 270])
     plt.xticks(np.linspace(0,270,10))
     plt.ylim([-3, 3])
     plt.grid(which = 'major', axis = 'both')
     plt.grid(which = 'minor', axis = 'both')
-    plt.title('Apply pure displacement and direction errors at W1')     
-    plt.xlabel('Gouy phase separation from W1 / mm')
-    plt.ylabel('offset in x / 1/e^2 radius')
+    plt.title('Direction correction applied at actuator, measure offsets at waist')     
+    plt.xlabel('Gouy-phase separation between actuator and waist / m')
+    plt.ylabel('offset / 1/e^2 radius')
     plt.legend(loc = 'upper right')
     plt.tight_layout()
 
 def main():
-    #beam_profile()
-    #mirror_dep()
-    #sensor_dep()
-    #sensor_position()
-    #Gouy()
-    sense_vs_Gouy()
+    #sensor_offset_distance(True)
+    #sensor_Gouy_distance(True)
+    #sensor_offset_Gouy()
+    #actuator_offset_distance(True)
+    #actuator_Gouy_distance(True)
+    #actuator_offset_Gouy()
     plt.show()
     
 if __name__ == "__main__":
     main()
-
-'''
-elif var_space == 3000:
-    if count == 0:
-        space_A = var_space
-        U = U.propagate(space_A)
-    elif count == 1:
-        space_A = 3000
-        #space_B = var_space - 3000
-        U = U.propagate(space_A)
-        #U = U.lens(F_L1)
-        #U = U.propagate(space_B)  
-'''
