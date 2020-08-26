@@ -401,12 +401,58 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
     ax1.set_ylabel('centre of beam / 1/e^2 radius')
     fig.legend(loc = 'upper right', bbox_to_anchor=(0.9, 0.88))
 
+def actuator(b,var_space): 
+    # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
+    # Mirrors M1 and M2 tilted by angles b and c. Returns, x and k offsets at OMC waist. 
+    space_A = var_space
+    space_B = 1185 - var_space
+    U = Beam(w0,z0)
+    U = U.propagate(space_0)
+    U = U.lens(FI)
+    U = U.propagate(space_1)
+    U = U.lens(L1)
+    U = U.propagate(space_A)
+    U = U.tilt(b)
+    U = U.propagate(space_B)
+    U = U.lens(L2)
+    U = U.propagate(space_6)
+    U = U.lens(L3)
+    U = U.propagate(space_7)
+    xparams = U.amp_fit()
+    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    kparams = U.freq_fit()
+    Dk = kparams[0] / abs(kparams[2]) # normalise offset to width in k-space
+    return (Dx, Dk)
+
+def act_dep(): # Tilt mirrors in turn by equal positive and negative amounts. Return x and k offsets at OMC waist.
+    x1 = []
+    k1 = []
+    s = np.linspace(0,1185,80)
+    for i in range(len(s)):
+        Dx, Dk = actuator(0.3,int(s[i]))
+        x1.append(Dx)
+        k1.append(Dk)
+    act_plot(s,x1,k1)
+
+def act_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x- and k- offsets as function of distance from L2 for direction correction applied at mirror
+    fig, ax1 = plt.subplots()
+    ax1.plot(dist,Dx_displ, color = 'blue', label = 'x-offset')
+    ax1.plot(dist,Dx_direc, color = 'orange', label = 'k-offset')
+    ax1.set_xlim([0, 1185])
+    ax1.set_ylim([-3.5, 3.5])
+    ax1.grid(which = 'major', axis = 'both')
+    plt.title('x- and k- offsets at waist for direction correction applied at mirror')     
+    ax1.set_xlabel('distance from L1 / mm')
+    ax1.set_ylabel('offset / 1/e^2 radius')
+    fig.legend(loc = 'upper right', bbox_to_anchor=(0.9, 0.88))
+
 def main():
     #beam_profile()
     #print(TT_corr(1,0))
     #TT_dep()
     #WFS_dep()
-    sen_dep()
+    #sen_dep()
+    act_dep()
     plt.show()
     
 if __name__ == "__main__":
