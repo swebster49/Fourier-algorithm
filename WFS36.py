@@ -347,7 +347,7 @@ def WFS_sense(x0,a0,space_9):
     U = U.lens(L2)
     U = U.propagate(space_9)
     xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     return Dx
 
 def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
@@ -418,7 +418,7 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
     ax1.plot(dist,Dx_displ, color = 'blue', label = 'displacement')
     ax1.plot(dist,Dx_direc, color = 'orange', label = 'direction')
     ax1.set_xlim([0, 1000])
-    ax1.set_ylim([-3, 3])
+    #ax1.set_ylim([-3, 3])
     ax1.vlines(x = var_space[0], ymin = -3, ymax = +3,\
     linewidth = 2,color = 0.5*np.array([1,1,1]),linestyles = 'dashed',label = 'WFS')
     ax1.vlines(x = var_space[1], ymin = -3, ymax = +3,\

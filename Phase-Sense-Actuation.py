@@ -200,69 +200,74 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
 # Start of Code which combines calculation of beam offsets using Fourier algorithm with calculation of Gouy phasee using ABCD Matrix method
 ###########################################################################################################################################
 
-def sensor(x0,a0,var_space,count=0): # Propagates beam from W1 to sensor. Variable distance between W1 and sensor. Displacement and direction errors applied at W1. Handles cases with sensor before and after lens. 
+def sensor(x0,a0,var_space,s0,count=0): # Propagates beam from W1 to sensor. Variable distance between W1 and sensor. Displacement and direction errors applied at W1. Handles cases with sensor before and after lens. 
     U = Beam(w0,0.0,x0,a0)
-    if var_space < 3000:
+    if var_space < s0:
         space_A = var_space
         U = U.propagate(space_A)
-    elif int(var_space) == 3000:
+    elif int(var_space) == s0:
         if count == 0:
             space_A = var_space
             U = U.propagate(space_A)
         elif count == 1:
-            space_A = 3000
-            space_B = var_space - 3000
+            space_A = s0
+            space_B = var_space - s0
             U = U.propagate(space_A)
             U = U.lens(F_L1)
             U = U.propagate(space_B)
-    elif var_space > 3000:
-        space_A = 3000
-        space_B = var_space - 3000
+    elif var_space > s0:
+        space_A = s0
+        space_B = var_space - s0
         U = U.propagate(space_A)
         U = U.lens(F_L1)
         U = U.propagate(space_B)
     xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2])
+    Dx = xparams[0] #/ abs(xparams[2])
     return Dx
 
-def sensor_offset_distance(show = False): # Calculates x-offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
-    s4 = np.concatenate((np.linspace(0,3000,31),np.linspace(3000,9000,61)), axis = 0)
+def sensor_offset_distance(act_off,show = False): # Calculates x-offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
+    s0 = 3000 - act_off
+    s1 = 6000
+    n0 = int(s0/100 + 1)
+    n1 = int(s1/100 + 1)
+    s = np.concatenate((np.linspace(0,s0,n0),np.linspace(s0,s0+s1,n1)), axis = 0)
     Dx_displ = []
     Dx_direc = []
+    #count = 0
+    #for i in range(len(s)):
+    #    Dx = sensor(1.0,0.0,int(s[i]),int(s0),count)
+    #    Dx_displ.append(Dx)
+    #    if int(s[i]) == s0:
+    #        count += 1
     count = 0
-    for i in range(len(s4)):
-        Dx = sensor(1.0,0.0,int(s4[i]),count)
-        Dx_displ.append(Dx)
-        if int(s4[i]) == 3000:
-            count += 1
-    count = 0
-    for i in range(len(s4)):
-        Dx = sensor(0.0,1.0,int(s4[i]),count)
+    for i in range(len(s)):
+        Dx = sensor(0.0,1.0,int(s[i]),int(s0),count)
         Dx_direc.append(Dx)
-        if int(s4[i]) == 3000:
+        if int(s[i]) == s0:
             count += 1
     if show:
-        sensor_offset_distance_plot(s4,Dx_displ,Dx_direc)
+        sensor_offset_distance_plot(s,Dx_displ,Dx_direc,act_off)
     return (Dx_displ,Dx_direc)
 
-def sensor_offset_distance_plot(dist,Dx_displ,Dx_direc,n=1): # Plots x offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
+def sensor_offset_distance_plot(dist,Dx_displ,Dx_direc,act_off,n=1): # Plots x offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
     d_plot = dist / 1000
+    a_plot = act_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     #plt.plot(d_plot,Dx_displ, label = 'displacement error')
     plt.plot(d_plot,Dx_direc, label = 'direction error')
-    plt.xlim([0, 9])
-    plt.ylim([-3, 3])
+    plt.xlim([0, 12])
+    #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
-    plt.title('Actuator fixed at waist, move sensor.')     
+    plt.title('Actuator fixed, offset %.0f m from waist; move sensor.' % (a_plot,))     
     plt.xlabel('separation between actuator and sensor / m')
-    plt.ylabel('x-offset at sensor/ 1/e^2 radius')
+    plt.ylabel('x-offset at sensor/ mm')
     #plt.legend(loc = 'upper right')
     plt.tight_layout()
 
-def sensor_propagate(): # Propagates beam from W1 to End
-    s0 = (space_2 + space_3) / 1000
+def sensor_propagate(act_off): # Propagates beam from W1 to End
+    s0 = (space_2 + space_3 - act_off) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
-    z1 = 0.0
+    z1 = act_off / 1000
     b1 = b / 1000
     S_L1 = 1 / (F_L1 / 1000)
     q0 = beam.beamParameter(z1+1j*b1)    
@@ -271,20 +276,22 @@ def sensor_propagate(): # Propagates beam from W1 to End
     q3 = beam.propagate(q2,s1)
     return (q0, q1, q2, q3)
 
-def sensor_distance(): # Develops z-axis array: from W2 to End
-    s0 = (space_2 + space_3) / 1000
+def sensor_distance(act_off): # Develops z-axis array: from W2 to End
+    s0 = (space_2 + space_3 - act_off) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
-    z0 = np.linspace(0,s0,31)                                        
-    z1 = np.linspace(s0, s0 + s1, 61)
+    n0 = int(s0*10 + 1)
+    n1 = int(s1*10 + 1)
+    z0 = np.linspace(0,s0,n0)                                        
+    z1 = np.linspace(s0,s0+s1,n1)
     z = np.concatenate((z0,z1),axis= 0)
     return (z0, z1, z)
 
-def sensor_Gouy(q_params,z_params): # Develops Gouy-phase array
+def sensor_Gouy(q_params,z_params,act_off): # Develops Gouy-phase array
     q0 = q_params[0]
     q2 = q_params[2]
     z0 = z_params[0]
     z1 = z_params[1]
-    s0 = (space_2 + space_3) / 1000
+    s0 = (space_2 + space_3 - act_off) / 1000
     s1 = (space_4 + space_5 + space_6 + space_7) / 1000
     q0_gouy = beam.gouyPhase(q0,z0)\
     - beam.gouyPhase(q0,0.0)
@@ -294,115 +301,122 @@ def sensor_Gouy(q_params,z_params): # Develops Gouy-phase array
     Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
     return Gouy_Phase
 
-def sensor_Gouy_distance(show = False): # Optionally plots Gouy phase as a function of distance
-    q_params = sensor_propagate()
-    z_params = sensor_distance()
+def sensor_Gouy_distance(act_off,show = False): # Optionally plots Gouy phase as a function of distance
+    q_params = sensor_propagate(act_off)
+    z_params = sensor_distance(act_off)
     z = z_params[2]
-    Gouy_Phase = sensor_Gouy(q_params,z_params)
+    Gouy_Phase = sensor_Gouy(q_params,z_params,act_off)
     if show:
-        sensor_Gouy_distance_plot(z, Gouy_Phase)
+        sensor_Gouy_distance_plot(z, Gouy_Phase, act_off)
     return Gouy_Phase
 
-def sensor_Gouy_distance_plot(z, Gouy_Phase, n=2):  # Plots Gouy phase as a function of distance
+def sensor_Gouy_distance_plot(z, Gouy_Phase, act_off, n=2):  # Plots Gouy phase as a function of distance
+    a_plot = act_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
-    plt.xlim(0,9)
-    plt.xticks(np.linspace(0,9,10))
-    plt.ylim(0,270)
-    plt.yticks(np.linspace(0,270,10))
+    plt.xlim(0,12)
+    plt.xticks(np.linspace(0,12,13))
+    plt.ylim(0,300)
+    plt.yticks(np.linspace(0,300,11))
     plt.grid(which = 'both', linestyle='--')
-    plt.title('Actuator fixed at waist, move sensor.')
+    plt.title('Actuator fixed, offset %.0f m from waist; move sensor.' % (a_plot,))
     plt.xlabel('separation between actuator and sensor / m')
     plt.ylabel('phase separation / ˚')
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
 
-def sensor_offset_Gouy():
-    Offsets = sensor_offset_distance()
-    Gouy_Phase = sensor_Gouy_distance()
-    sensor_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1])
+def sensor_offset_Gouy(act_off,show_offset,show_Gouy):
+    Offsets = sensor_offset_distance(act_off,show_offset)
+    Gouy_Phase = sensor_Gouy_distance(act_off,show_Gouy)
+    sensor_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1],act_off)
 
-def sensor_offset_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,n=3): # Plots x offset at sensor as a function of phase-separation from W1 with displacement and direction errors applied at W1
+def sensor_offset_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,act_off,n=3): # Plots x offset at sensor as a function of phase-separation from W1 with displacement and direction errors applied at W1
+    a_plot = act_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     #plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement error')
     plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction error')
-    plt.xlim([0, 270])
-    plt.xticks(np.linspace(0,270,10))
-    plt.ylim([-3, 3])
+    plt.xlim([0, 300])
+    plt.xticks(np.linspace(0,300,11))
+    #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
-    plt.grid(which = 'minor', axis = 'both')
-    plt.title('Actuator fixed at waist, move sensor.')     
+    plt.title('Actuator fixed, offset %.0f m from waist; move sensor.' % (a_plot,))     
     plt.xlabel('phase separation between actuator and sensor / ˚')
-    plt.ylabel('x-offset at sensor / 1/e^2 radius')
+    plt.ylabel('x-offset at sensor / mm')
     #plt.legend(loc = 'upper right')
     plt.tight_layout()
 
-def actuator(x0,a0,var_space,count=0): # Propagates beam from W1 to sensor. Variable distance between W1 and sensor. Displacement and direction errors applied at W1. Handles cases with sensor before and after lens. 
-    if var_space < 3000:
+def actuator(x0,a0,var_space,s0,count=0): # Propagates beam from W1 to sensor. Variable distance between W1 and sensor. Displacement and direction errors applied at W1. Handles cases with sensor before and after lens. 
+    sen_off = s0 - 3000
+    if var_space < s0:
         space_B = var_space
-        U = Beam(w0,-var_space,x0,a0)
+        U = Beam(w0,sen_off-var_space,x0,a0)
         U = U.propagate(space_B)
-    elif int(var_space) == 3000:
+    elif int(var_space) == s0:
         if count == 0:
             space_B = var_space
-            U = Beam(w0,-var_space,x0,a0)
+            U = Beam(w0,sen_off-var_space,x0,a0)
             U = U.propagate(space_B)
         elif count == 1:
-            space_B = 3000
-            space_A = var_space - 3000
-            U = Beam(w0,6000-var_space,x0,a0)
+            space_B = s0
+            space_A = var_space - s0
+            U = Beam(w0,6000+sen_off-var_space,x0,a0)
             U = U.propagate(space_A)
             U = U.lens(F_L1)
             U = U.propagate(space_B)
-    elif var_space > 3000:
-        space_B = 3000
-        space_A = var_space - 3000
-        U = Beam(w0,6000-var_space,x0,a0)
+    elif var_space > s0:
+        space_B = s0
+        space_A = var_space - s0
+        U = Beam(w0,6000+sen_off-var_space,x0,a0)
         U = U.propagate(space_A)
         U = U.lens(F_L1)
         U = U.propagate(space_B)
     xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2])
+    Dx = xparams[0] #/ abs(xparams[2])
     return Dx
 
-def actuator_offset_distance(show = False): # Calculates x-offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
-    s4 = np.concatenate((np.linspace(0,3000,31),np.linspace(3000,9000,61)), axis = 0)
+def actuator_offset_distance(sen_off,show = False): # Calculates x-offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
+    s0 = 3000 + sen_off
+    s1 = 6000
+    n0 = int(s0/100 + 1)
+    n1 = int(s1/100 + 1)
+    s = np.concatenate((np.linspace(0,s0,n0),np.linspace(s0,s0+s1,n1)), axis = 0)
     Dx_displ = []
     Dx_direc = []
+    #count = 0
+    #for i in range(len(s)):
+    #    Dx = actuator(1.0,0.0,int(s[i]),int(s0),count)
+    #    Dx_displ.append(Dx)
+    #    if int(s[i]) == s0:
+    #        count += 1
     count = 0
-    for i in range(len(s4)):
-        Dx = actuator(1.0,0.0,int(s4[i]),count)
-        Dx_displ.append(Dx)
-        if int(s4[i]) == 3000:
-            count += 1
-    count = 0
-    for i in range(len(s4)):
-        Dx = actuator(0.0,1.0,int(s4[i]),count)
+    for i in range(len(s)):
+        Dx = actuator(0.0,1.0,int(s[i]),int(s0),count)
         Dx_direc.append(Dx)
-        if int(s4[i]) == 3000:
+        if int(s[i]) == s0:
             count += 1
     if show:
-        actuator_offset_distance_plot(s4,Dx_displ,Dx_direc)
+        actuator_offset_distance_plot(s,Dx_displ,Dx_direc,sen_off)
     return (Dx_displ,Dx_direc)
 
-def actuator_offset_distance_plot(dist,Dx_direc,Dk_direc,n=4): # Plots x- and k- offsets as a function of distance from mirror at which direction correction is applied
+def actuator_offset_distance_plot(dist,Dx_displ,Dx_direc,sen_off,n=4): # Plots x- and k- offsets as a function of distance from mirror at which direction correction is applied
     d_plot = dist / 1000
+    s_plot = sen_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    #plt.plot(d_plot,Dx_direc, label = 'displacement error')
-    plt.plot(d_plot,Dk_direc, label = 'direction error')
-    plt.xlim([0, 9])
-    plt.ylim([-6, 6])
+    #plt.plot(d_plot,Dx_displ, label = 'displacement error')
+    plt.plot(d_plot,Dx_direc, label = 'direction error')
+    plt.xlim([0, 12])
+    #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
-    plt.title('Move actuator, sensor fixed at waist.')     
+    plt.title('Move actuator; sensor fixed, offset %.0f m from waist.' % (s_plot,))     
     plt.xlabel('separation between actuator and sensor / m')
-    plt.ylabel('x-offset at sensor/ 1/e^2 radius')
+    plt.ylabel('x-offset at sensor/ mm')
     #plt.legend(loc = 'upper right')
     plt.tight_layout()
 
-def actuator_propagate(): # Propagates beam (backwards) from W2 to Start
+def actuator_propagate(sen_off): # Propagates beam (backwards) from W2 to Start
     s1 = (space_0 + space_1 + space_2 + space_3) / 1000
-    s0 = (space_4 + space_5) / 1000
-    z1 = 0.0
+    s0 = (space_4 + space_5 + sen_off) / 1000
+    z1 = - sen_off / 1000
     b1 = b / 1000
     S_L1 = 1 / (F_L1 / 1000)
     q0 = beam.beamParameter(z1+1j*b1)    
@@ -411,21 +425,23 @@ def actuator_propagate(): # Propagates beam (backwards) from W2 to Start
     q3 = beam.propagate(q2,s1)
     return (q0, q1, q2, q3)
 
-def actuator_distance(): # Develops z-axis array: from W2 to Start
+def actuator_distance(sen_off): # Develops z-axis array: from W2 to Start
     s1 = (space_0 + space_1 + space_2 + space_3) / 1000
-    s0 = (space_4 + space_5) / 1000
-    z0 = np.linspace(0,s0,31)                                        
-    z1 = np.linspace(s0, s0 + s1, 61)
+    s0 = (space_4 + space_5 + sen_off) / 1000
+    n0 = int(s0*10 + 1)
+    n1 = int(s1*10 + 1)
+    z0 = np.linspace(0,s0,n0)                                        
+    z1 = np.linspace(s0,s0+s1,n1)
     z = np.concatenate((z0,z1),axis= 0)
     return (z0, z1, z)
 
-def actuator_Gouy(q_params,z_params): # Develops Gouy-phase array
+def actuator_Gouy(q_params,z_params,sen_off): # Develops Gouy-phase array
     q0 = q_params[0]
     q2 = q_params[2]
     z0 = z_params[0]
     z1 = z_params[1]
     s1 = (space_0 + space_1 + space_2 + space_3) / 1000
-    s0 = (space_4 + space_5) / 1000
+    s0 = (space_4 + space_5 + sen_off) / 1000
     q0_gouy = beam.gouyPhase(q0,z0)\
     - beam.gouyPhase(q0,0.0)
     q2_gouy = beam.gouyPhase(beam.propagate(q2,-(s0)),z1)\
@@ -434,56 +450,57 @@ def actuator_Gouy(q_params,z_params): # Develops Gouy-phase array
     Gouy_Phase = np.concatenate((q0_gouy,q2_gouy),axis = 0)
     return Gouy_Phase
 
-def actuator_Gouy_distance(show = False): # Optionally plots Gouy phase as a function of distance
-    q_params = actuator_propagate()
-    z_params = actuator_distance()
+def actuator_Gouy_distance(sen_off,show = False): # Optionally plots Gouy phase as a function of distance
+    q_params = actuator_propagate(sen_off)
+    z_params = actuator_distance(sen_off)
     z = z_params[2]
-    Gouy_Phase = actuator_Gouy(q_params,z_params)
+    Gouy_Phase = actuator_Gouy(q_params,z_params,sen_off)
     if show:
-        actuator_Gouy_distance_plot(z, Gouy_Phase)
+        actuator_Gouy_distance_plot(z, Gouy_Phase, sen_off)
     return Gouy_Phase
 
-def actuator_Gouy_distance_plot(z, Gouy_Phase, n=5):  # Plots Gouy phase as a function of distance
+def actuator_Gouy_distance_plot(z, Gouy_Phase, sen_off, n=5):  # Plots Gouy phase as a function of distance
+    s_plot = sen_off / 1000    
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
-    plt.xlim(0,9)
-    plt.xticks(np.linspace(0,9,10))
-    plt.ylim(0,270)
-    plt.yticks(np.linspace(0,270,10))
+    plt.xlim(0,12)
+    plt.xticks(np.linspace(0,12,13))
+    plt.ylim(0,300)
+    plt.yticks(np.linspace(0,300,11))
     plt.grid(which = 'both', linestyle='--')
-    plt.title('Move actuator, sensor fixed at waist.')
+    plt.title('Move actuator; sensor fixed, offset %.0f m from waist.' % (s_plot,))
     plt.xlabel('separation between actuator and sensor / m')
     plt.ylabel('phase separation / ˚')
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
 
-def actuator_offset_Gouy(): # 
-    Offsets = actuator_offset_distance()
-    Gouy_Phase = actuator_Gouy_distance()
-    actuator_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1])
+def actuator_offset_Gouy(sen_off,show_offset,show_Gouy): # 
+    Offsets = actuator_offset_distance(sen_off,show_offset)
+    Gouy_Phase = actuator_Gouy_distance(sen_off,show_Gouy)
+    actuator_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1],sen_off)
 
-def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,n=6): # Plots x- and k-offsets at W2 as function of distance mirror at which a direction correction is applied
+def actuator_offset_Gouy_plot(Gouy_Phase,Dx_displ,Dx_direc,sen_off,n=6): # Plots x- and k-offsets at W2 as function of distance mirror at which a direction correction is applied
+    s_plot = sen_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    #plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'displacement error')
-    plt.plot(Gouy_Phase*180/np.pi, Dk_direc, label = 'direction error')
-    plt.xlim([0, 270])
-    plt.xticks(np.linspace(0,270,10))
-    plt.ylim([-6, 6])
+    #plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement error')
+    plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction error')
+    plt.xlim([0, 300])
+    plt.xticks(np.linspace(0,300,11))
+    #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
-    plt.grid(which = 'minor', axis = 'both')
-    plt.title('Move actuator, sensor fixed at waist.')     
+    plt.title('Move actuator; sensor fixed, offset %.0f from waist.' % (s_plot,))     
     plt.xlabel('phase separation between actuator and waist / ˚')
-    plt.ylabel('x-offset at sensor/ 1/e^2 radius')
+    plt.ylabel('x-offset at sensor/ mm')
     #plt.legend(loc = 'upper right')
     plt.tight_layout()
 
 def main():
-    sensor_offset_distance(True)
-    sensor_Gouy_distance(True)
-    sensor_offset_Gouy()
-    actuator_offset_distance(True)
-    actuator_Gouy_distance(True)
-    actuator_offset_Gouy()
+    #sensor_offset_distance(-2000,True)
+    #sensor_Gouy_distance(-2000,True)
+    sensor_offset_Gouy(2000,True,True)
+    #actuator_offset_distance(2000,True)
+    #actuator_Gouy_distance(2000,True)
+    actuator_offset_Gouy(-2000,True,True)
     plt.show()
     
 if __name__ == "__main__":
