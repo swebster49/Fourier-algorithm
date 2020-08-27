@@ -41,10 +41,12 @@ w = [Gaussfit(x,abs(U),1)[2]]                                       # Initialise
 
 N = len(U)
 idx = int(N/2)
-d = np.linspace(-3000,3000,100)
+#d = np.linspace(0,3000,10)
+space = 3000
+res = 300
+N = space // res
 plane = []
 phase = []
-gouy = []
 U0 = U[idx]
 phase_0 = np.angle(U0) % (2 * np.pi)
 U = U * np.exp(-1j * phase_0)
@@ -53,10 +55,12 @@ U0 = U1[idx]
 pl = 0
 ph = (np.angle(U0)) % (2 * np.pi)
 gy_prev = pl - ph
-for i in range(len(d)):
-    U1 = step(U,kz,d[i])
+distance = [0]
+gouy = [gy_prev]
+for i in range(N):
+    U1 = step(U,kz,res * (i+1))
     U0 = U1[idx]
-    pl = (kwav * d[i]) % (2 * np.pi)
+    pl = (kwav * res * (i+1)) % (2 * np.pi)
     ph = (np.angle(U0)) % (2 * np.pi)
     gy = pl - ph
     if (gy - gy_prev) > np.pi:
@@ -65,6 +69,7 @@ for i in range(len(d)):
         gy = gy + 2 * np.pi
     plane.append(pl)
     phase.append(ph)
+    distance.append(distance[-1] + res)
     gouy.append(gy)
     gy_prev = gy
     #print(plane, '\t', phase, '\t', gouy)
@@ -77,7 +82,7 @@ gouy = np.asarray(gouy)
 #plt.figure(3)
 #plt.plot(d,phase)
 plt.figure(5)
-plt.plot(d,gouy)
+plt.plot(distance,gouy)
 plt.show()
 
 '''
