@@ -20,7 +20,7 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     return est_params # [offset, amplitude, width]
 
 wav = 1.064e-3                                                      # wavelength in mm
-z0 = 0                                                          # input waist location
+z0 = -000                                                          # input waist location
 b = 1000                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 space_0 = 5000                                                      # Start - M1
@@ -49,17 +49,16 @@ plane = []
 phase = []
 U0 = U[idx]
 phase_0 = np.angle(U0) % (2 * np.pi)
-U = U * np.exp(-1j * phase_0)
-U1 = U
-U0 = U1[idx]
+Uprev = U * np.exp(-1j * phase_0)
+U0 = Uprev[idx]
 pl = 0
 ph = (np.angle(U0)) % (2 * np.pi)
 gy_prev = pl - ph
 distance = [0]
 gouy = [gy_prev]
 for i in range(N):
-    U1 = step(U,kz,res * (i+1))
-    U0 = U1[idx]
+    Unext = step(Uprev,kz,res * (i+1))
+    U0 = Unext[idx]
     pl = (kwav * res * (i+1)) % (2 * np.pi)
     ph = (np.angle(U0)) % (2 * np.pi)
     gy = pl - ph
@@ -72,7 +71,7 @@ for i in range(N):
     distance.append(distance[-1] + res)
     gouy.append(gy)
     gy_prev = gy
-    #print(plane, '\t', phase, '\t', gouy)
+    print(pl, '\t', ph, '\t', gy)
 
 plane = np.asarray(plane)
 phase = np.asarray(phase)
