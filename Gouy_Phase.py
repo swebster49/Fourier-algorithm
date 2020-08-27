@@ -5,198 +5,11 @@ from scipy.optimize import curve_fit as fit
 from scipy.fft import fft #as fft
 from scipy.fft import ifft #as ifft
 
-# Program description
-'''
-Uses Fourier method of Sziklas and Seigman (1975) [see also Leavey and Courtial, Young TIM User Guide (2017).] for beam propagation.
-Calculation of:
-1) waist size along beam path. (beam_profile)
-2) effect of mirror tilt on position and direction of beam at waist. (simple_correction, simple_corr_dep)
-3) effect of mirror tilt on position and direction of beam at waist as a function of mirror separation. (corr_dep)
-4) effect of input error (in position and direction) on transverse position of beam as a function of distance from beam waist. (sen_dep)
-'''
-
-# General comment: 
-# Erroneous results can occur due to poor fit in k-space. If this is the case, use initial width greater than expected width in Gaussfit. 
-# Beam profile requires initial width to be smaller than expected width. 
-
-# Inputs
-wav = 1.064e-3                                                      # wavelength in mm
-z0 = -2500                                                          # input waist location
-b = 1000                                                            # input Rayleigh range
-w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
-x0 = 0.0                                                            # initial offset in mm
-a0 = 0.0                                                            # initial angle in mrad
-space_0 = 5000                                                      # Start - M1
-
-class Beam: 
-    '''Represents Gaussian beam in x, propagating along z. 
-    Attributes: 
-    U: 1D array, Complex amplitude
-    w: 1D array, width
-    z: 1D array, z-co-ordinate
-    x: 1D array, x-co-ordinate
-    kneg/kpos: 1D arrays, negative/positive components of k-vactor along x-axis (spatial frequencies)
-    kx: 1D array, component of k-vector along x-axis (spatial frequency)
-    kz: 1D array, component of k-vector along z-axis
-    kwav: constant, magnitude of wavevector
-    zres: constant: resolution in z
-    '''
-    def __init__(self, *args): # Initialises amplitude array.
-        x0 = 0
-        a0 = 0
-        W = 200                                                                 # Width of window in mm
-        xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
-        N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
-        self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
-        self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))       # 1D array representing kx-space from max -ve value to min -ve value
-        self.kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, int(N/2))         # 1D array representing kx-space from min +ve value to max +ve value
-        self.kx = np.concatenate((self.kpos,self.kneg), axis = 0)               # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
-        self.kwav = 2 * np.pi / wav                                             # Magnitude of wave-vector
-        self.kz = np.sqrt(self.kwav**2 - self.kx**2)                            # 1D array representing kz-space. Derived from condition for monochromaticity. 
-        self.zres = 5000                                                        # z-resolution in mm: 3000 for most; 50 for beam profile. 
-        if len(args) == 2:                                                      # Two arguments: Instantiates Beam object from waist size, w0, and distance to waist, z0. 
-            w0 = args[0]
-            z0 = args[1]
-        elif len(args) == 4:                                                    # Four arguments: Instantiates Beam object from waist size, w0, distance to waist, z0, input offset, x0, and input angle, a0. 
-            w0 = args[0]
-            z0 = args[1]
-            x0 = args[2]
-            a0 = args[3]
-        a0 = a0 / 1000                                                          # Converts input angle from mrad to rad
-        q0 = z0 - 1j * np.pi * w0**2 / wav                                      # Input beam parameter
-        U0 = (1/q0) * np.exp(1j * self.kwav * (self.x-x0)**2 / (2 * q0))        # Input array, offset by x0
-        U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
-        self.U = U0                                                             # Initialise amplitude array
-        self.w = [Gaussfit(self.x,abs(self.U),1)[2]]                            # Initialise width list
-        #self.p = np.angle(self.U[int(N/2)])                                     #+ np.angle(self.U[int(N/2 - 1)])) / 2       # Phase at centre of amlitude distribution - take average of two central points. 
-        self.z = [0]                                                            # Initialise z-position list.
-        self.g = [0]                                                            # Initialise Gouy phase list. 
-
-    def step(self, D): # Propagate input Beam object over distance, D; return Beam object. Fourier algorithm. 
-        Pin = fft(self.U)                       # FFT of amplitude distribution, U, gives spatial frequency distribution, Pin at initial position, z.
-        Pout = Pin * np.exp(1j * self.kz * D)   # Multiply Spatial frequency distribution by phase-factor corresponding to propagation through distance, D, to give new spatial frequency distribution, Pout. 
+def step(Uin, k_z, D): # Propagate input Beam object over distance, D; return Beam object. Fourier algorithm. 
+        Pin = fft(Uin)                       # FFT of amplitude distribution, U, gives spatial frequency distribution, Pin at initial position, z.
+        Pout = Pin * np.exp(1j * k_z * D)   # Multiply Spatial frequency distribution by phase-factor corresponding to propagation through distance, D, to give new spatial frequency distribution, Pout. 
         Uout = ifft(Pout)                       # IFFT of spatial frequency distribution gives amplitude distribution, Uout, at plane z = z + D
-        self.U = Uout
-        return self
-
-    def propagate(self,distance,profile=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
-        Uprev = self
-        if profile:
-            w = Uprev.w                 # unpack width_list
-            z = Uprev.z                 # unpack z-position_list
-            g = Uprev.g                 # unpack Gouy-phase list
-            res = 50                    # Set res to 50 if generating plot of beam profile.
-        else:
-            res = self.zres             # Otherwise use global variable, zres
-        num = distance // res           # number of steps: divide distance by resolution. 
-        rem = distance % res            # remainder of division: final step size. If num = 0, i.e. zres > distance, single step taken, equal to distance. 
-        p0 = 180 * ((self.kwav * res) % 2 * np.pi) / (np.pi)
-        N = int(len(Uprev.U) / 2)
-        #print(p0)
-        for i in range(num):            # num steps
-            Unext = Uprev.step(res)
-            Uprev = Unext
-            if profile:
-                p = 180 * np.angle(Unext.U[N]) / np.pi
-                #p = 180 * Unext.p / np.pi
-                gp = p - p0
-                #print(p)
-                zprev = z[-1]
-                gprev = g[-1]
-                z.append(zprev + res)   # Build up z-array as go along. 
-                g.append(gprev + gp) # Build up Gouy-phase array as go along
-                wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
-                w.append(wnext)
-        Unext = Uprev.step(rem)         # Final step of size rem. 
-        p0 = 180 * ((self.kwav * rem) % 2 * np.pi) / (np.pi)
-        if profile:
-            p = 180 * np.angle(Unext.U[N]) / np.pi            
-            #p = 180 * Unext.p / np.pi
-            gp = p - p0
-            zprev = z[-1]
-            gprev = g[-1]
-            z.append(zprev + rem) 
-            g.append(gprev + gp) 
-            wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
-            w.append(wnext)
-            Unext.w = w # Pack back in
-            Unext.z = z
-            Unext.g = g
-        return Unext
-
-    def tilt(self,angle): # Applies linear phase-gradient, simulating effect of tilting mirror. Input angle in mrad. 
-        Uin = self.U
-        a = angle / 1000
-        Uout = Uin * np.exp(-1j * self.kwav * self.x * np.sin(a))
-        self.U = Uout
-        return self
-
-    def lens(self,f): # Lens element of focal length, f. 
-        Uin = self.U
-        Uout = Uin * np.exp(-1j * self.kwav * self.x**2 / (2 * f))
-        self.U = Uout
-        return self
-
-    def mirror(self,R): # Mirror element of radius of curvature, R. 
-        Uin = self.U
-        Uout = Uin * np.exp(-1j * self.kwav * self.x**2 / R)
-        self.U = Uout
-        return self
-
-    def amp_plot(self,n=1): # Plot magnitude of Amplitude array in x-space. 
-        Uplot = abs(self.U)/max(abs(self.U))
-        plt.figure(n)
-        plt.plot(self.x,Uplot,'o', label = 'model data', markersize = 3)
-        axes = plt.gca()
-        axes.set_xlim([-20, 20])
-        axes.set_ylim([0, 1.1])
-        plt.grid(which = 'major', axis = 'both')
-        plt.xlabel('x / mm')
-        plt.ylabel('Normalised amplitude distribution')
-        #plt.legend()
-        plt.tight_layout()
-
-    def amp_fit(self,plot=False,n=1): # Fit (and Plot) magnitude of Amplitude array in x-space. 
-        Uplot = abs(self.U)/max(abs(self.U))
-        xparams = Gaussfit(self.x,Uplot)
-        UFit = Gaussian(self.x, xparams[0], xparams[1], xparams[2])
-        if plot == True:
-            plt.figure(n)
-            plt.plot(self.x,Uplot,'o', label = 'model data', markersize = 3)
-            plt.plot(self.x,UFit,'-', label = 'fit')
-            axes = plt.gca()
-            axes.set_xlim([-20, 20])
-            axes.set_ylim([0, 1.1])
-            plt.grid(which = 'major', axis = 'both')
-            plt.xlabel('x / mm')
-            plt.ylabel('Normalised amplitude distribution')
-            #plt.legend()
-            plt.tight_layout()
-        return xparams
-
-    def freq_fit(self,plot=False,n=2): # Fit ( and plot) magnitude of Spatial frequency array in k-space. 
-        P = fft(self.U)
-        kplot = np.concatenate((self.kneg,self.kpos), axis = 0)     
-        Pneg = P[int(len(P)/2):]
-        Ppos = P[:int(len(P)/2)]
-        Pswap = np.concatenate((Pneg,Ppos), axis = 0)
-        Pabs = abs(Pswap)
-        Pplot = Pabs/max(Pabs)
-        kparams = Gaussfit(kplot,Pplot)
-        PFit = Gaussian(kplot, kparams[0], kparams[1], kparams[2])
-        if plot == True:
-            plt.figure(n)
-            plt.plot(kplot,Pplot,'o', label = 'model data', markersize = 3)
-            plt.plot(kplot,PFit,'-', label = 'fit')
-            axes = plt.gca()
-            axes.set_xlim([-25, 25])
-            axes.set_ylim([0, 1.1])
-            plt.grid(which = 'major', axis = 'both')
-            plt.xlabel('k_x / mm^-1')
-            plt.ylabel('Normalised spatial frequency distribution')
-            #plt.legend()
-            plt.tight_layout()
-        return kparams
+        return Uout
 
 def Gaussian(space, offset, height, width): # Defines Gaussian function for fitting; space is a 1D array. 
     return height * np.exp(-((space-offset)/width)**2)
@@ -206,47 +19,84 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     est_params, est_err = fit(Gaussian, space, Array, p0 = init_params)
     return est_params # [offset, amplitude, width]
 
-def beam_profile(): 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0, True)
-    width_plot(U.z,U.w)
-    Gouy_plot(U.z,U.g)
+wav = 1.064e-3                                                      # wavelength in mm
+z0 = 0                                                          # input waist location
+b = 1000                                                            # input Rayleigh range
+w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
+space_0 = 5000                                                      # Start - M1
 
-def width_plot(distance_list,width_list,n=3): 
-    zplot = 0.001 * np.asarray(distance_list)
-    wplot = np.asarray(width_list)
-    plt.figure(figsize=(9, 7), dpi=120)
-    plt.plot(zplot,wplot, linewidth = 3)
-    axes = plt.gca()
-    #axes.set_xlim([0, 12])
-    #axes.set_ylim(0.0,2.6)
-    #axes.set_xticks(np.linspace(0,12,13))
-    #axes.set_yticks(np.linspace(0.0,2.6,14))
-    plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('distance along beam / m')
-    axes.set_ylabel('beam radius / mm')
-    #plt.title('Beam used for determining relationship between beam offset and Gouy phase. ')
-    plt.tight_layout()
+W = 200                                                             # Width of window in mm
+xres = 0.01                                                         # 1D array representing kz-space. Derived from condition for monochromaticity.
+N = int(W / xres)                                                   # Number of x-bins (keeps resolution the same)  
+x = np.linspace(-W/2, W/2, N)                                       # 1D array representing x-space
+kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))        # 1D array representing kx-space from max -ve value to min -ve value
+kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, int(N/2))          # 1D array representing kx-space from min +ve value to max +ve value
+kx = np.concatenate((kpos,kneg), axis = 0)                          # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
+kwav = 2 * np.pi / wav                                              # Magnitude of wave-vector
+kz = np.sqrt(kwav**2 - kx**2)                                       # 1D array representing kz-space. Derived from condition for monochromaticity. 
+zres = 5000                                                         # z-resolution in mm: 3000 for most; 50 for beam profile. 
+q0 = z0 - 1j * np.pi * w0**2 / wav                                  # Input beam parameter
+U = (1/q0) * np.exp(1j * kwav * x**2 / (2 * q0))                    # Input array
+w = [Gaussfit(x,abs(U),1)[2]]                                       # Initialise width list
 
-def Gouy_plot(distance_list,phase_list,n=4): 
-    zplot = 0.001 * np.asarray(distance_list)
-    pplot = np.asarray(phase_list)
-    plt.figure(figsize=(9, 7), dpi=120)
-    plt.plot(zplot,pplot, linewidth = 3)
-    axes = plt.gca()
-    #axes.set_xlim([0, 12])
-    #axes.set_ylim(0.0,2.6)
-    #axes.set_xticks(np.linspace(0,12,13))
-    #axes.set_yticks(np.linspace(0.0,2.6,14))
-    plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('distance along beam / m')
-    axes.set_ylabel('Gouy phase / ˚')
-    #plt.title('Beam used for determining relationship between beam offset and Gouy phase. ')
-    plt.tight_layout()
+N = len(U)
+idx = int(N/2)
+d = np.linspace(-3000,3000,100)
+plane = []
+phase = []
+gouy = []
+U0 = U[idx]
+phase_0 = np.angle(U0) % (2 * np.pi)
+U = U * np.exp(-1j * phase_0)
+U1 = U
+U0 = U1[idx]
+pl = 0
+ph = (np.angle(U0)) % (2 * np.pi)
+gy_prev = pl - ph
+for i in range(len(d)):
+    U1 = step(U,kz,d[i])
+    U0 = U1[idx]
+    pl = (kwav * d[i]) % (2 * np.pi)
+    ph = (np.angle(U0)) % (2 * np.pi)
+    gy = pl - ph
+    if (gy - gy_prev) > np.pi:
+        gy = gy - 2 * np.pi
+    if (gy - gy_prev) < -np.pi:
+        gy = gy + 2 * np.pi
+    plane.append(pl)
+    phase.append(ph)
+    gouy.append(gy)
+    gy_prev = gy
+    #print(plane, '\t', phase, '\t', gouy)
 
-def main():
-    beam_profile()
-    plt.show()
-    
-if __name__ == "__main__":
-    main()
+plane = np.asarray(plane)
+phase = np.asarray(phase)
+gouy = np.asarray(gouy)
+#plt.figure(1)
+#plt.plot(d,plane)
+#plt.figure(3)
+#plt.plot(d,phase)
+plt.figure(5)
+plt.plot(d,gouy)
+plt.show()
+
+'''
+start = 0
+size = 10
+end = 1000
+m = int((end - start) / size)
+n = int(len(x)/2)
+U0 = U[n]
+d = [start]
+p = [np.angle(U0)]
+for i in range(m):
+    U = step(U,size)
+    U0 = U[n]
+    d.append(d[-1]+size)
+    p.append(np.angle(U0))
+
+p = np.asarray(p)
+plt.figure()
+plt.plot(d,p)
+plt.show()
+'''
