@@ -61,7 +61,6 @@ for i in range(num):
     p.append(p1)
     g.append(g[-1] + g1)
     U0 = U1 * np.exp(-1j * p1)
-#g = g * 2 
 
 plt.figure(1)
 d_plot = np.asarray(d)

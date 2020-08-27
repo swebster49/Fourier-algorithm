@@ -56,9 +56,10 @@ class Beam:
         W = 200                                                                 # Width of window in mm
         xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
         N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
+        self.idx = int(N/2)
         self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
-        self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))       # 1D array representing kx-space from max -ve value to min -ve value
-        self.kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, int(N/2))         # 1D array representing kx-space from min +ve value to max +ve value
+        self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, self.idx)       # 1D array representing kx-space from max -ve value to min -ve value
+        self.kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, self.idx)         # 1D array representing kx-space from min +ve value to max +ve value
         self.kx = np.concatenate((self.kpos,self.kneg), axis = 0)               # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
         self.kwav = 2 * np.pi / wav                                             # Magnitude of wave-vector
         self.kz = np.sqrt(self.kwav**2 - self.kx**2)                            # 1D array representing kz-space. Derived from condition for monochromaticity. 
@@ -77,6 +78,7 @@ class Beam:
         U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
         self.U = U0                                                             # Initialise amplitude array
         self.w = [Gaussfit(self.x,abs(self.U),1)[2]]                            # Initialise width list
+        self.g = [0]                                                            # Initialise Gouy-phase list
         self.z = [0]                                                            # Initialise z-position list.
 
     def step(self, D): # Propagate input Beam object over distance, D; return Beam object. Fourier algorithm. 
@@ -86,31 +88,45 @@ class Beam:
         self.U = Uout
         return self
 
-    def propagate(self,distance,profile=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
+    def propagate(self,distance,res=10000,profile=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
         Uprev = self
         if profile:
-            w = Uprev.w                 # unpack width_list
-            z = Uprev.z                 # unpack z-position_list
-            res = 50                    # Set res to 50 if generating plot of beam profile.
-        else:
-            res = self.zres             # Otherwise use global variable, zres
+            w = self.w                 # unpack width list
+            g = self.g                 # unpack gouy-phase list
+            z = self.z                 # unpack z-position list
         num = distance // res           # number of steps: divide distance by resolution. 
         rem = distance % res            # remainder of division: final step size. If num = 0, i.e. zres > distance, single step taken, equal to distance. 
+        idx = self.idx
+        kwav = self.kwav
+        p0 = ((np.angle(Uprev.U[idx]) + np.angle(Uprev.U[idx-1]))/2) #% (2 * np.pi) # average phase at centre of distribution
+        Uprev.U = Uprev.U * np.exp(-1j * p0)   # re-set phase to zero
+        pl = (kwav * res) % (2 * np.pi)
         for i in range(num):            # num steps
             Unext = Uprev.step(res)
-            Uprev = Unext
             if profile:
                 zprev = z[-1]
                 z.append(zprev + res)   # Build up z-array as go along. 
                 wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
                 w.append(wnext)
+                p1 = ((np.angle(Unext.U[idx]) + np.angle(Unext.U[idx-1]))/2) #% (2 * np.pi)
+                g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
+                g.append(g[-1] + g1)
+                Unext.U = Unext.U * np.exp(-1j * p1)
+            Uprev = Unext
+        pl = (kwav * rem) % (2 * np.pi)
         Unext = Uprev.step(rem)         # Final step of size rem. 
         if profile:
             zprev = z[-1]
             z.append(zprev + rem) 
             wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
             w.append(wnext)
+            p1 = (np.angle(Unext.U[idx]) + np.angle(Unext.U[idx-1]))/2
+            g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
+            if g1 > 1.9 * np.pi:
+                g1 = g1 - 2 * np.pi
+            g.append(g[-1] + g1)
             Unext.w = w
+            Unext.g = g
             Unext.z = z
         return Unext
 
@@ -198,16 +214,17 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
 
 def beam_profile(): 
     U = Beam(w0,z0)
-    U = U.propagate(space_0 + space_1 + space_2 + space_3, True)
+    U = U.propagate(space_0 + space_1 + space_2 + space_3, 50, True)
     U = U.lens(F_L1)
-    U = U.propagate(space_4 + space_5 + space_6 + space_7, True)
+    U = U.propagate(space_4 + space_5 + space_6 + space_7, 50, True)
     width_plot(U.z,U.w)
+    gouy_plot(U.z,U.g)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
     zplot = 0.001 * np.asarray(distance_list)
     wplot = np.asarray(width_list)
-    plt.figure(figsize=(9, 7), dpi=120)
-    plt.plot(zplot,wplot, linewidth = 3)
+    plt.figure(n,figsize=(4, 3.6), dpi=120)
+    plt.plot(zplot,wplot, linewidth = 2)
     axes = plt.gca()
     axes.set_xlim([0, 12])
     axes.set_ylim(0.0,2.6)
@@ -216,7 +233,23 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
     axes.set_xlabel('distance along beam / m')
     axes.set_ylabel('beam radius / mm')
-    #plt.title('Layout 5f + WFS36. Beam profile calculated with Fourier algorithm.')
+    #plt.title('')
+    plt.tight_layout()
+
+def gouy_plot(distance_list,gouy_list,n=4):
+    zplot = 0.001 * np.asarray(distance_list)
+    gplot = (180 / np.pi) * np.asarray(gouy_list)
+    plt.figure(n,figsize=(4, 3.6), dpi=120)
+    plt.plot(zplot,gplot, linewidth = 2)
+    axes = plt.gca()
+    axes.set_xlim([0, 12])
+    axes.set_ylim(0.0,300)
+    axes.set_xticks(np.linspace(0,12,13))
+    axes.set_yticks(np.linspace(0,300,11))
+    plt.grid(which = 'both', axis = 'both', linestyle = '--')
+    axes.set_xlabel('distance along beam / m')
+    axes.set_ylabel('gouy-phase / ˚')
+    #plt.title('')
     plt.tight_layout()
 
 ###########################################################################################################################################
@@ -272,10 +305,10 @@ def sensor_offset_distance(act_off,show = False): # Calculates x-offset as funct
         sensor_offset_distance_plot(s,Dx_direc,Dx_displ,act_off)
     return (Dx_direc,Dx_displ)
 
-def sensor_offset_distance_plot(dist,Dx_direc,Dx_displ,act_off,n=1): # Plots x offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
+def sensor_offset_distance_plot(dist,Dx_direc,Dx_displ,act_off,n=5): # Plots x offset as function of distance from W1 to sensor for displacement and direction errors applied at W1
     d_plot = dist / 1000
     a_plot = act_off / 1000
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4,3.6), dpi=120)
     plt.plot(d_plot,Dx_direc, label = 'direction error')
     #plt.plot(d_plot,Dx_displ, label = 'displacement error')
     plt.xlim([0, 12])
@@ -333,9 +366,9 @@ def sensor_Gouy_distance(act_off,show = False): # Optionally plots Gouy phase as
         sensor_Gouy_distance_plot(z, Gouy_Phase, act_off)
     return Gouy_Phase
 
-def sensor_Gouy_distance_plot(z, Gouy_Phase, act_off, n=2):  # Plots Gouy phase as a function of distance
+def sensor_Gouy_distance_plot(z, Gouy_Phase, act_off, n=6):  # Plots Gouy phase as a function of distance
     a_plot = act_off / 1000
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4, 3.6), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
     plt.xlim(0,12)
@@ -353,9 +386,9 @@ def sensor_offset_Gouy(act_off,show_offset,show_Gouy):
     Gouy_Phase = sensor_Gouy_distance(act_off,show_Gouy)
     sensor_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1],act_off)
 
-def sensor_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dx_displ,act_off,n=3): # Plots x offset at sensor as a function of phase-separation from W1 with displacement and direction errors applied at W1
+def sensor_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dx_displ,act_off,n=7): # Plots x offset at sensor as a function of phase-separation from W1 with displacement and direction errors applied at W1
     a_plot = act_off / 1000
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4,3.6), dpi=120)
     plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'direction error')
     #plt.plot(Gouy_Phase*180/np.pi, Dx_displ, label = 'displacement error')
     plt.xlim([0, 300])
@@ -418,10 +451,10 @@ def actuator_offset_distance(sen_off,show = False): # Calculates x-offset as fun
         actuator_offset_distance_plot(s,Dx_direc,Dk_direc,sen_off)
     return (Dx_direc,Dk_direc)
 
-def actuator_offset_distance_plot(dist,Dx_direc,Dk_direc,sen_off,n=4): # Plots x- and k- offsets as a function of distance from mirror at which direction correction is applied
+def actuator_offset_distance_plot(dist,Dx_direc,Dk_direc,sen_off,n=8): # Plots x- and k- offsets as a function of distance from mirror at which direction correction is applied
     d_plot = dist / 1000
     s_plot = sen_off / 1000
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4, 3.6), dpi=120)
     plt.plot(d_plot,Dx_direc, label = 'x-offset')
     #plt.plot(d_plot,Dk_direc, label = 'k-offset')
     plt.xlim([0, 12])
@@ -479,9 +512,9 @@ def actuator_Gouy_distance(sen_off,show = False): # Optionally plots Gouy phase 
         actuator_Gouy_distance_plot(z, Gouy_Phase, sen_off)
     return Gouy_Phase
 
-def actuator_Gouy_distance_plot(z, Gouy_Phase, sen_off, n=5):  # Plots Gouy phase as a function of distance
+def actuator_Gouy_distance_plot(z, Gouy_Phase, sen_off, n=9):  # Plots Gouy phase as a function of distance
     s_plot = sen_off / 1000    
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4, 3.6), dpi=120)
     plt.plot(z, Gouy_Phase*180/np.pi)
     plt.grid(which = 'both', linestyle='--')
     plt.xlim(0,12)
@@ -499,9 +532,9 @@ def actuator_offset_Gouy(sen_off,show_offset,show_Gouy): #
     Gouy_Phase = actuator_Gouy_distance(sen_off,show_Gouy)
     actuator_offset_Gouy_plot(Gouy_Phase,Offsets[0],Offsets[1],sen_off)
 
-def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=6): # Plots x- and k-offsets at W2 as function of distance mirror at which a direction correction is applied
+def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=10): # Plots x- and k-offsets at W2 as function of distance mirror at which a direction correction is applied
     s_plot = sen_off / 1000
-    plt.figure(n, figsize=(6, 5.5), dpi=120)
+    plt.figure(n, figsize=(4, 3.6), dpi=120)
     plt.plot(Gouy_Phase*180/np.pi, Dx_direc, label = 'x-offset')
     #plt.plot(Gouy_Phase*180/np.pi, Dk_direc, label = 'k-offset')
     plt.xlim([0, 300])
