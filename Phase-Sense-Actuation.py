@@ -196,6 +196,29 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     est_params, est_err = fit(Gaussian, space, Array, p0 = init_params)
     return est_params # [offset, amplitude, width]
 
+def beam_profile(): 
+    U = Beam(w0,z0)
+    U = U.propagate(space_0 + space_1 + space_2 + space_3, True)
+    U = U.lens(F_L1)
+    U = U.propagate(space_4 + space_5 + space_6 + space_7, True)
+    width_plot(U.z,U.w)
+
+def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
+    zplot = 0.001 * np.asarray(distance_list)
+    wplot = np.asarray(width_list)
+    plt.figure(figsize=(9, 7), dpi=120)
+    plt.plot(zplot,wplot, linewidth = 3)
+    axes = plt.gca()
+    axes.set_xlim([0, 12])
+    axes.set_ylim(0.0,2.6)
+    axes.set_xticks(np.linspace(0,12,13))
+    axes.set_yticks(np.linspace(0.0,2.6,14))
+    plt.grid(which = 'both', axis = 'both', linestyle = '--')
+    axes.set_xlabel('distance along beam / m')
+    axes.set_ylabel('beam radius / mm')
+    #plt.title('Layout 5f + WFS36. Beam profile calculated with Fourier algorithm.')
+    plt.tight_layout()
+
 ###########################################################################################################################################
 # Start of Code which combines calculation of beam offsets using Fourier algorithm with calculation of Gouy phasee using ABCD Matrix method
 ###########################################################################################################################################
@@ -492,12 +515,13 @@ def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=6): # Plots
     plt.tight_layout()
 
 def main():
+    beam_profile()
     #sensor_offset_distance(-2000,True)
     #sensor_Gouy_distance(-2000,True)
-    sensor_offset_Gouy(-2000,True,True)
+    #sensor_offset_Gouy(-2000,True,True)
     #actuator_offset_distance(2000,True)
     #actuator_Gouy_distance(2000,True)
-    actuator_offset_Gouy(2000,True,True)
+    #actuator_offset_Gouy(2000,True,True)
     plt.show()
     
 if __name__ == "__main__":

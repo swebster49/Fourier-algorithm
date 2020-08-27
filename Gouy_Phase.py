@@ -20,7 +20,7 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     return est_params # [offset, amplitude, width]
 
 wav = 1.064e-3                                                      # wavelength in mm
-z0 = -000                                                          # input waist location
+z0 = -10000                                                          # input waist location
 b = 1000                                                            # input Rayleigh range
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 space_0 = 5000                                                      # Start - M1
@@ -28,9 +28,10 @@ space_0 = 5000                                                      # Start - M1
 W = 200                                                             # Width of window in mm
 xres = 0.01                                                         # 1D array representing kz-space. Derived from condition for monochromaticity.
 N = int(W / xres)                                                   # Number of x-bins (keeps resolution the same)  
+idx = int(N/2)
 x = np.linspace(-W/2, W/2, N)                                       # 1D array representing x-space
-kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, int(N/2))        # 1D array representing kx-space from max -ve value to min -ve value
-kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, int(N/2))          # 1D array representing kx-space from min +ve value to max +ve value
+kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, idx)        # 1D array representing kx-space from max -ve value to min -ve value
+kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, idx)          # 1D array representing kx-space from min +ve value to max +ve value
 kx = np.concatenate((kpos,kneg), axis = 0)                          # 1D array representing kx-space. Order of values matches that spatial frequency distribution derived from FFT of amlitude distribution
 kwav = 2 * np.pi / wav                                              # Magnitude of wave-vector
 kz = np.sqrt(kwav**2 - kx**2)                                       # 1D array representing kz-space. Derived from condition for monochromaticity. 
@@ -39,6 +40,39 @@ q0 = z0 - 1j * np.pi * w0**2 / wav                                  # Input beam
 U = (1/q0) * np.exp(1j * kwav * x**2 / (2 * q0))                    # Input array
 w = [Gaussfit(x,abs(U),1)[2]]                                       # Initialise width list
 
+space = 20000
+res = 300
+num = space // res
+p0 = (np.angle(U[idx]) + np.angle(U[idx-1]))/2
+U0 = U * np.exp(-1j * p0)
+d0 = 0
+p0 = (np.angle(U0[idx]) + np.angle(U0[idx-1]))/2 
+pl = (kwav * res) % (2 * np.pi)
+g0 = -2 * p0
+d = [d0]
+p = [p0]
+g = [g0]
+for i in range(num):
+    U1 = step(U0, kz, res)
+    d1 = res
+    p1 = (np.angle(U1[idx]) + np.angle(U1[idx-1]))/2
+    g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
+    d.append(d[-1] + d1)
+    p.append(p1)
+    g.append(g[-1] + g1)
+    U0 = U1 * np.exp(-1j * p1)
+#g = g * 2 
+
+plt.figure(1)
+d_plot = np.asarray(d)
+g_plot = (180 / np.pi) * np.asarray(g)
+plt.plot(d_plot,g_plot)
+plt.xlim(0,20000)
+plt.ylim(0,180)
+plt.grid()
+plt.show()
+
+'''
 N = len(U)
 idx = int(N/2)
 #d = np.linspace(0,3000,10)
@@ -56,25 +90,26 @@ ph = (np.angle(U0)) % (2 * np.pi)
 gy_prev = pl - ph
 distance = [0]
 gouy = [gy_prev]
+#pl = (kwav * res) % (2 * np.pi)
 for i in range(N):
-    Unext = step(Uprev,kz,res * (i+1))
+    Unext = step(Uprev,kz,res)
     U0 = Unext[idx]
-    pl = (kwav * res * (i+1)) % (2 * np.pi)
     ph = (np.angle(U0)) % (2 * np.pi)
-    gy = pl - ph
+    gy = 2 * ph_prev - ph
     if (gy - gy_prev) > np.pi:
         gy = gy - 2 * np.pi
     if (gy - gy_prev) < -np.pi:
         gy = gy + 2 * np.pi
-    plane.append(pl)
+    #plane.append(pl)
     phase.append(ph)
     distance.append(distance[-1] + res)
     gouy.append(gy)
+    ph_prev = ph
     gy_prev = gy
+    Uprev = Unext
     print(pl, '\t', ph, '\t', gy)
-
-plane = np.asarray(plane)
-phase = np.asarray(phase)
+'
+#plane = np.asarray(plane)phase = np.asarray(phase)
 gouy = np.asarray(gouy)
 #plt.figure(1)
 #plt.plot(d,plane)
@@ -84,7 +119,7 @@ plt.figure(5)
 plt.plot(distance,gouy)
 plt.show()
 
-'''
+
 start = 0
 size = 10
 end = 1000
