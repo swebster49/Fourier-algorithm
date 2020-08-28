@@ -212,13 +212,15 @@ def Gaussfit(space,Array,init_width=30):# Fit Gaussian to magnitude of Amplitude
     est_params, est_err = fit(Gaussian, space, Array, p0 = init_params)
     return est_params # [offset, amplitude, width]
 
-def beam_profile(): 
-    U = Beam(w0,z0)
+def beam_profile(beam=False,gouy=False): 
+    U = Beam(w0,z0,0.0,0.0)
     U = U.propagate(space_0 + space_1 + space_2 + space_3, 50, True)
     U = U.lens(F_L1)
     U = U.propagate(space_4 + space_5 + space_6 + space_7, 50, True)
-    width_plot(U.z,U.w)
-    gouy_plot(U.z,U.g)
+    if beam:
+        width_plot(U.z,U.w)
+    if gouy:
+        gouy_plot(U.z,U.g)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
     zplot = 0.001 * np.asarray(distance_list)
@@ -548,7 +550,7 @@ def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=10): # Plot
     plt.tight_layout()
 
 def main():
-    beam_profile()
+    beam_profile(True,True)
     #sensor_offset_distance(-2000,True)
     #sensor_Gouy_distance(-2000,True)
     #sensor_offset_Gouy(-2000,True,True)
