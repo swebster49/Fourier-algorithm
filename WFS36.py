@@ -426,7 +426,7 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
     ax1.grid(which = 'major', axis = 'both')
     plt.title('Apply pure displacement and direction errors at W3')     
     ax1.set_xlabel('distance from L2 / mm')
-    ax1.set_ylabel('offset in x / 1/e^2 radius')
+    ax1.set_ylabel('offset in x / mm')
     fig.legend(loc = 'upper right', bbox_to_anchor=(0.95, 0.92))
     fig.tight_layout()
 

@@ -398,7 +398,7 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
     ax1.grid(which = 'major', axis = 'both')
     plt.title('x-offset for pure displacement and direction errors at Waist')     
     ax1.set_xlabel('distance from L3 / mm')
-    ax1.set_ylabel('centre of beam / 1/e^2 radius')
+    ax1.set_ylabel('centre of beam / mm')
     fig.legend(loc = 'upper right', bbox_to_anchor=(0.9, 0.88))
 
 def actuator(b,var_space): 
