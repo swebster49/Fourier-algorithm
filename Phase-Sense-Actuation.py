@@ -39,8 +39,8 @@ space_C = L1_S1 + S1_W2
 space_D = ST_M1 + M1_W1 + W1_M2 + M2_L1
 F_L1 = 1670
 res = 100
-act_off = -2000
-sen_off = 2000
+act_off = -000
+sen_off = 000
 
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
@@ -302,14 +302,14 @@ def sensor_offset_distance_plot(dist,Dx_direc,Dx_displ,act_off,n=5): # Plots x o
     a_plot = act_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(d_plot,Dx_direc, label = 'direction error')
-    #plt.plot(d_plot,Dx_displ, label = 'displacement error')
+    plt.plot(d_plot,Dx_displ, label = 'displacement error')
     plt.xlim([0, 12])
     #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
     plt.title('Actuator fixed, offset %.0f m from waist; move sensor.' % (a_plot,))     
     plt.xlabel('separation between actuator and sensor / m')
     plt.ylabel('x-offset at sensor/ mm')
-    #plt.legend(loc = 'upper right')
+    plt.legend(loc = 'upper right')
     plt.tight_layout()
 
 def sensor_offset_Gouy(space_A,space_B,act_off,res,show_offset,show_Gouy):
@@ -390,14 +390,14 @@ def actuator_offset_distance_plot(dist,Dx_direc,Dk_direc,sen_off,n=8): # Plots x
     s_plot = sen_off / 1000
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(d_plot,Dx_direc, label = 'x-offset')
-    #plt.plot(d_plot,Dk_direc, label = 'k-offset')
+    plt.plot(d_plot,Dk_direc, label = 'k-offset')
     plt.xlim([0, 12])
     #plt.ylim([-6, 6])
     plt.grid(which = 'major', axis = 'both')
     plt.title('Move actuator; sensor fixed, offset %.0f m from waist.' % (s_plot,))     
     plt.xlabel('separation between actuator and sensor / m')
     plt.ylabel('offset at sensor/ mm')
-    #plt.legend(loc = 'upper right')
+    plt.legend(loc = 'upper right')
     plt.tight_layout()
 
 def actuator_offset_Gouy(space_C,space_D,sen_off,res,show_offset,show_Gouy): 
@@ -426,9 +426,9 @@ def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=10): # Plot
 def main():
     beam_profile(space_A,space_B,act_off,res,True,True)           # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     #sensor_offset_distance(act_off,res,True)                       # Boolean: Plot
-    #sensor_offset_Gouy(space_A,space_B,act_off,res,False,False)    # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
+    #sensor_offset_Gouy(space_A,space_B,act_off,res,True,False)    # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     #actuator_offset_distance(sen_off,res,True)                     # Boolean: Plot
-    #actuator_offset_Gouy(space_C,space_D,sen_off,res,False,False)   # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
+    #actuator_offset_Gouy(space_C,space_D,sen_off,res,True,False)   # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     plt.show()
     
 if __name__ == "__main__":
