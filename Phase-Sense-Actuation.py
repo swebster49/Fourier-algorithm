@@ -61,7 +61,7 @@ class Beam:
         W = 200                                                                 # Width of window in mm
         xres = 0.01                                                             # 1D array representing kz-space. Derived from condition for monochromaticity.
         N = int(W / xres)                                                       # Number of x-bins (keeps resolution the same)  
-        self.idx = int(N/2)
+        self.idx = int(N/2)                                                     # First point of second-half of array
         self.x = np.linspace(-W/2, W/2, N)                                      # 1D array representing x-space
         self.kneg = np.linspace(-(np.pi * N)/W, -(2 * np.pi)/W, self.idx)       # 1D array representing kx-space from max -ve value to min -ve value
         self.kpos = np.linspace((2 * np.pi)/W, (np.pi * N)/W, self.idx)         # 1D array representing kx-space from min +ve value to max +ve value
@@ -94,14 +94,13 @@ class Beam:
         return self
 
     def profile(self,step_size):
-        zprev = self.z[-1]
-        self.z.append(zprev + step_size)   # Build up z-array as go along. 
+        self.z.append(self.z[-1] + step_size)   # Accumulate z-array.
         wnext = Gaussfit(self.x,abs(self.U),1)[2]
         self.w.append(wnext)
-        p1 = ((np.angle(self.U[self.idx]) + np.angle(self.U[self.idx-1]))/2) #% (2 * np.pi)
-        pl = (self.kwav * step_size) % (2 * np.pi)
-        g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
-        self.g.append(self.g[-1] + g1)
+        p1 = ((np.angle(self.U[self.idx]) + np.angle(self.U[self.idx-1]))/2)    # Mean of phase of the two central points of the distribution
+        pl = (self.kwav * step_size) % (2 * np.pi)                              # Phase accumulated by plane wave modulo 2pi
+        g1 = 2 * (pl - p1) % (2 * np.pi)    # !! Fudge-factor of 2 - gives correct answer. Gouy-phase is phase of Gaussian beam relative to that of a plane wave propagated by the same distance. 
+        self.g.append(self.g[-1] + g1)      # Accumulate Gouy-phase array.
         self.U = self.U * np.exp(-1j * p1)
         return self
 
