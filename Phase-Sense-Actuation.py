@@ -93,50 +93,32 @@ class Beam:
         self.U = Uout
         return self
 
-    def propagate(self,distance,res=10000,profile=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
-        Uprev = self
-        if profile:
-            w = self.w                 # unpack width list
-            g = self.g                 # unpack gouy-phase list
-            z = self.z                 # unpack z-position list
+    def profile(self,step_size):
+        zprev = self.z[-1]
+        self.z.append(zprev + step_size)   # Build up z-array as go along. 
+        wnext = Gaussfit(self.x,abs(self.U),1)[2]
+        self.w.append(wnext)
+        p1 = ((np.angle(self.U[self.idx]) + np.angle(self.U[self.idx-1]))/2) #% (2 * np.pi)
+        pl = (self.kwav * step_size) % (2 * np.pi)
+        g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
+        self.g.append(self.g[-1] + g1)
+        self.U = self.U * np.exp(-1j * p1)
+        return self
+
+    def propagate(self,distance,res=10000,show=False): # Propagate Beam object through distance with resolution, zres; return Beam object. 
         num = distance // res           # number of steps: divide distance by resolution. 
         rem = distance % res            # remainder of division: final step size. If num = 0, i.e. zres > distance, single step taken, equal to distance. 
-        idx = self.idx
-        kwav = self.kwav
-        p0 = ((np.angle(Uprev.U[idx]) + np.angle(Uprev.U[idx-1]))/2) #% (2 * np.pi) # average phase at centre of distribution
-        Uprev.U = Uprev.U * np.exp(-1j * p0)   # re-set phase to zero
-        pl = (kwav * res) % (2 * np.pi)
+        p0 = ((np.angle(self.U[self.idx]) + np.angle(self.U[self.idx-1]))/2) #% (2 * np.pi) # average phase at centre of distribution
+        self.U = self.U * np.exp(-1j * p0)   # re-set phase to zero
         for i in range(num):            # num steps
-            Unext = Uprev.step(res)
-            if profile:
-                zprev = z[-1]
-                z.append(zprev + res)   # Build up z-array as go along. 
-                wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
-                w.append(wnext)
-                p1 = ((np.angle(Unext.U[idx]) + np.angle(Unext.U[idx-1]))/2) #% (2 * np.pi)
-                g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
-                g.append(g[-1] + g1)
-                Unext.U = Unext.U * np.exp(-1j * p1)
-            Uprev = Unext
-        pl = (kwav * rem) % (2 * np.pi)
+            self = self.step(res)
+            if show:
+                self = self.profile(res)
         if rem != 0:
-            Unext = Uprev.step(rem)         # Final step of size rem. 
-            if profile:
-                zprev = z[-1]
-                z.append(zprev + rem) 
-                wnext = Gaussfit(Unext.x,abs(Unext.U),1)[2]
-                w.append(wnext)
-                p1 = (np.angle(Unext.U[idx]) + np.angle(Unext.U[idx-1]))/2
-                g1 = 2 * (pl - p1) % (2 * np.pi) # Fudge-factor of 2 - gives correct answer. 
-                if g1 > 1.9 * np.pi:
-                    g1 = g1 - 2 * np.pi
-                g.append(g[-1] + g1)
-                Unext.w = w
-                Unext.g = g
-                Unext.z = z
-        else:
-            Unext = Uprev
-        return Unext
+            self = self.step(rem)         # Final step of size rem. 
+            if show:
+                self = self.profile(rem)
+        return self
 
     def tilt(self,angle): # Applies linear phase-gradient, simulating effect of tilting mirror. Input angle in mrad. 
         Uin = self.U
@@ -443,11 +425,11 @@ def actuator_offset_Gouy_plot(Gouy_Phase,Dx_direc,Dk_direc,sen_off,n=10): # Plot
     plt.tight_layout()
 
 def main():
-    #beam_profile(space_A,space_B,act_off,res,False,True)           # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
+    beam_profile(space_A,space_B,act_off,res,True,True)           # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     #sensor_offset_distance(act_off,res,True)                       # Boolean: Plot
     #sensor_offset_Gouy(space_A,space_B,act_off,res,False,False)    # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     #actuator_offset_distance(sen_off,res,True)                     # Boolean: Plot
-    actuator_offset_Gouy(space_C,space_D,sen_off,res,False,False)   # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
+    #actuator_offset_Gouy(space_C,space_D,sen_off,res,False,False)   # Boolean 1: Beam-radius, Boolean 2: Gouy-Phase
     plt.show()
     
 if __name__ == "__main__":
