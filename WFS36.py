@@ -433,8 +433,8 @@ def sen_plot(dist,Dx_displ,Dx_direc,n=6): # Plots x offset as function of distan
 def main():
     #beam_profile()
     #Mirror_dep()
-    #WFS_dep()
-    sen_dep()
+    WFS_dep()
+    #sen_dep()
     plt.show()
     
 if __name__ == "__main__":
