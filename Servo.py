@@ -22,6 +22,7 @@ Calculation of:
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
 wav = 1.064e-3                                                      # wavelength in mm
+kwav = 2 * np.pi / wav                                              # Magnitude of wave-vector in mm^-1
 z0 = -3550                                                          # input waist location
 b0 = 1090                                                           # input Rayleigh range
 w0 = np.sqrt(b0 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
@@ -80,7 +81,7 @@ class Beam:
         a0 = a0 / 1000                                                          # Converts input angle from mrad to rad
         q0 = z0 - 1j * np.pi * w0**2 / wav                                      # Input beam parameter
         U0 = (1/q0) * np.exp(1j * self.kwav * (self.x-x0)**2 / (2 * q0))        # Input array, offset by x0
-        U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
+        U0 = U0 * np.exp(1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
         self.U = U0                                                             # Initialise amplitude array
         self.w = [Gaussfit(self.x,abs(self.U),1)[2]]                            # Initialise width list
         self.z = [0]                                                            # Initialise z-position list.
@@ -123,7 +124,7 @@ class Beam:
     def tilt(self,angle): # Applies linear phase-gradient, simulating effect of tilting mirror. Input angle in mrad. 
         Uin = self.U
         a = angle / 1000
-        Uout = Uin * np.exp(-1j * self.kwav * self.x * np.sin(a))
+        Uout = Uin * np.exp(1j * self.kwav * self.x * np.sin(a))
         self.U = Uout
         return self
 
@@ -159,14 +160,14 @@ class Beam:
         if plot == True:
             plt.figure(n)
             plt.plot(self.x,Uplot,'o', label = 'model data', markersize = 3)
-            plt.plot(self.x,UFit,'-', label = count)
+            plt.plot(self.x,UFit,'-', label = 'fit')
             axes = plt.gca()
             axes.set_xlim([-1, 1])
             axes.set_ylim([0, 1.1])
             plt.grid(which = 'major', axis = 'both')
             plt.xlabel('x / mm')
             plt.ylabel('Normalised amplitude distribution')
-            #plt.legend()
+            plt.legend()
             plt.tight_layout()
         return xparams
 
@@ -190,7 +191,7 @@ class Beam:
             plt.grid(which = 'major', axis = 'both')
             plt.xlabel('k_x / mm^-1')
             plt.ylabel('Normalised spatial frequency distribution')
-            #plt.legend()
+            plt.legend()
             plt.tight_layout()
         return kparams
 
@@ -222,8 +223,8 @@ def TT_corr(b,c):   # Direction errors applied at mirrors. Returns, x and k offs
     Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
     Dk = kparams[0] #/ abs(kparams[2]) # normalise offset to width in k-space
-    #a = 1000 * np.arctan(np.sqrt(1 / ((U.kwav/U.kx)**2 - 1)))
-    return (Dx, Dk)
+    Da = 1000 * np.arctan(np.sqrt(1 / ((kwav / Dk)**2 - 1))) # angle in mrad
+    return (Dx, Da)
 
 def WFS_sense(a0,x0,space_7): # Displacement and Direction errors applied at W1. Returns x- and k- offsets at WFS or at W2. 
     U = Beam(w1,z1,x0,a0)
@@ -237,12 +238,13 @@ def WFS_sense(a0,x0,space_7): # Displacement and Direction errors applied at W1.
     Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
     Dk = kparams[0] #/ abs(kparams[2]) # normalise offset to width in k-space
-    return Dx, Dk
+    Da = 1000 * np.arctan(np.sqrt(1 / ((kwav / Dk)**2 - 1))) # angle in mrad
+    return Dx, Da
 
 def TT_test(): # Direction error applied at mirrors. Return x and k offsets at W2.
-    x1, k1 = TT_corr(1.0,0)
-    x2, k2 = TT_corr(0,1.0)
-    return (x1,x2,k1,k2)
+    x1, a1 = TT_corr(1.0,0)
+    x2, a2 = TT_corr(0,1.0)
+    return (x1,x2,a1,a2)
 
 def TT_dep():  # 
     Mtest = TT_test()
@@ -262,9 +264,9 @@ def WFS_dep():  # Calculates x offsets at WFS1 and WFS2 for +/- dislpacement/dir
         print(Stest[i])
 
 def W1W2_test(space_7): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
-    x_displ, k_displ = WFS_sense(1.0,0.0,space_7)
-    x_direc, k_direc = WFS_sense(0.0,1.0,space_7)
-    return (x_displ,x_direc,k_displ,k_direc)
+    x_displ, a_displ = WFS_sense(1.0,0.0,space_7)
+    x_direc, a_direc = WFS_sense(0.0,1.0,space_7)
+    return (x_displ,x_direc,a_displ,a_direc)
 
 def W1W2_dep():
     Stest = W1W2_test(space_7)
@@ -275,7 +277,7 @@ def main():
     TT_dep()
     WFS_dep()
     W1W2_dep()
-    #plt.show()
+    plt.show()
     
 if __name__ == "__main__":
     main()
