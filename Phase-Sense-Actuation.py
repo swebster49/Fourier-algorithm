@@ -77,7 +77,7 @@ class Beam:
         a0 = a0 / 1000                                                          # Converts input angle from mrad to rad
         q0 = z0 - 1j * np.pi * w0**2 / wav                                      # Input beam parameter
         U0 = (1/q0) * np.exp(1j * self.kwav * (self.x-x0)**2 / (2 * q0))        # Input array, offset by x0
-        U0 = U0 * np.exp(-1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
+        U0 = U0 * np.exp(1j * self.kwav * self.x * np.sin(a0))                 # Tilt beam by initial angle, a0
         self.U = U0                                                             # Initialise amplitude array
         self.w = [Gaussfit(self.x,abs(self.U),1)[2]]                            # Initialise width list
         self.g = [0]                                                            # Initialise Gouy-phase list
@@ -119,7 +119,7 @@ class Beam:
     def tilt(self,angle): # Applies linear phase-gradient, simulating effect of tilting mirror. Input angle in mrad. 
         Uin = self.U
         a = angle / 1000
-        Uout = Uin * np.exp(-1j * self.kwav * self.x * np.sin(a))
+        Uout = Uin * np.exp(1j * self.kwav * self.x * np.sin(a))
         self.U = Uout
         return self
 
@@ -439,8 +439,8 @@ def actuator(x0,a0,var_space,s0,count=0): # Propagates beam from W1 to sensor. V
         U = U.propagate(space_A)
         U = U.lens(F_L1)
         U = U.propagate(space_B)
-    xparams = U.amp_fit()
-    kparams = U.freq_fit()
+    xparams = U.amp_fit(True)
+    kparams = U.freq_fit(True)
     Dx = xparams[0] / abs(xparams[2])
     Dk = kparams[0] / abs(kparams[2])
     return Dx, Dk
@@ -591,9 +591,11 @@ def main():
     res = 100
     act_off = 0
     sen_off = 0
-    #beam_profile(space_A,space_B,act_off,res,False,True)                        # Booleans: Beam-radius vs distance; Gouy-Phase vs distance
+    #sensor(0.0,1.0,1000,3000)
+    #actuator(0.0,1.0,1000,3000)
+    #beam_profile(space_A,space_B,act_off,res,False,False)                        # Booleans: Beam-radius vs distance; Gouy-Phase vs distance
     #sensor_offset_distance(act_off,res,True,True)                                   # Booleans: Offset vs distance; Phase vs distance
-    sensor_offset_Gouy(space_A,space_B,act_off,res,False,False,False,True,True,True)      # Booleans: Offset vs distance; Phase vs distance; Gouy vs distance; Offset vs Gouy; Phase vs Gouy; xk-plot
+    #sensor_offset_Gouy(space_A,space_B,act_off,res,False,False,False,True,True,True)      # Booleans: Offset vs distance; Phase vs distance; Gouy vs distance; Offset vs Gouy; Phase vs Gouy; xk-plot
     #actuator_offset_distance(sen_off,res,True,True)                                 # Booleans: Offset vs distance; Phase vs distance
     #actuator_offset_Gouy(space_C,space_D,sen_off,res,False,False,False,True,True,True)   # Booleans: Offset vs distance; Phase vs distance; Gouy vs distance; Offset vs Gouy; Phase vs Gouy; xk-plot
     plt.show()
