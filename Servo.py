@@ -244,40 +244,45 @@ def WFS_sense(a0,x0,space_7): # Displacement and Direction errors applied at W1.
 def TT_test(): # Direction error applied at mirrors. Return x and k offsets at W2.
     x1, a1 = TT_corr(1.0,0)
     x2, a2 = TT_corr(0,1.0)
-    return (x1,x2,a1,a2)
+    A = np.array([[x1, x2], [a1, a2]])
+    return A
 
-def TT_dep():  # 
-    Mtest = TT_test()
-    for i in range(4):
-        print(Mtest[i])
-
-def WFS_test(var_space): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
+def WFS_test(): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
     x1_displ = WFS_sense(1.0,0.0,var_space[0])[0]
     x2_displ = WFS_sense(1.0,0.0,var_space[1])[0]
     x1_direc = WFS_sense(0.0,1.0,var_space[0])[0]
     x2_direc = WFS_sense(0.0,1.0,var_space[1])[0]
-    return (x1_displ,x1_direc,x2_displ,x2_direc)
+    B = np.array([[x1_displ, x1_direc], [x2_displ, x2_direc]])
+    return B
 
-def WFS_dep():  # Calculates x offsets at WFS1 and WFS2 for +/- dislpacement/direction errors at SRM.
-    Stest = WFS_test(var_space)
-    for i in range(4):
-        print(Stest[i])
-
-def W1W2_test(space_7): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
+def W1W2_test(): # Apply +/- displacement/direction errors at SRM and return x-displacement at WFS1 and WFS2.
     x_displ, a_displ = WFS_sense(1.0,0.0,space_7)
     x_direc, a_direc = WFS_sense(0.0,1.0,space_7)
-    return (x_displ,x_direc,a_displ,a_direc)
+    C = np.array([[x_displ, x_direc], [a_displ, a_direc]])
+    return C
 
-def W1W2_dep():
-    Stest = W1W2_test(space_7)
-    for i in range(4):
-        print(Stest[i])
+def servo():
+    A = TT_test()
+    B = WFS_test()
+    C = W1W2_test()
+    IA = np.linalg.inv(A)
+    IB = np.linalg.inv(B)
+    IC = np.linalg.inv(C)
+    WFS_err = np.array([[1],[0]])
+    print(WFS_err)
+    TT = IA @ C @ IB @ -WFS_err
+    print(TT)
+    WFS_corr = B @ IC @ A @ TT
+    print(WFS_corr)
+    WFS_res = WFS_err + WFS_corr
+    print(WFS_res)
 
 def main():
-    TT_dep()
-    WFS_dep()
-    W1W2_dep()
-    plt.show()
+    TT_test()
+    WFS_test()
+    W1W2_test()
+    servo()
+    #plt.show()
     
 if __name__ == "__main__":
     main()
