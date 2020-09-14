@@ -26,18 +26,21 @@ b = 2090                                                            # input Rayl
 w0 = np.sqrt(b * wav / np.pi)                                       # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
+L0_OM0 = 1152
+OM0_L1 = 660
 space_0 = 15756                                                     # SR2 - SRM
 space_1 = 1120                                                      # SRM - L0
 space_2 = 1152                                                      # L0 - OM0
-space_3 = 610                                                       # OM0 - L1
-space_4 = 330                                                       # L1 - QPD
+space_3 = 660                                                       # OM0 - L1
+space_4 = 380                                                       # L1 - QPD
+z_OM0 = (space_0 + space_1 + space_2) 
 z_L1 = (space_0 + space_1 + space_2 + space_3)
 z_QPD = (space_0 + space_1 + space_2 + space_3 + space_4)
 n1064 = 1.44963
 R_SRM = 5694
 F_SRM = R_SRM / (n1064 - 1)
 F_L0 = -17100                                                         # OFI lens
-F_L1 = 1200                                                              # L1
+F_L1 = 750                                                              # L1
 
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
@@ -209,30 +212,35 @@ def beam_profile():
     U = U.propagate(space_2, True)
     U = U.propagate(space_3, True)
     U = U.lens(F_L1)
-    U = U.propagate(20000 - (space_0 + space_1 + space_2 + space_3),True)
+    U = U.propagate(22000 - (space_0 + space_1 + space_2 + space_3),True)
     width_plot(U.z,U.w)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
-    zplot = np.asarray(distance_list) - z_L1
+    zplot = np.asarray(distance_list) - z_OM0
     wplot = np.asarray(width_list)
-    plt.figure(figsize=(9, 7), dpi=120)
+    plt.figure(figsize=(6, 5), dpi=120)
     plt.plot(zplot,wplot, linewidth = 3)
     axes = plt.gca()
     #axes.set_xlim([0, 20])
     #axes.set_ylim(0.0,10)
     #axes.set_xticks(np.linspace(0,20,11))
     #axes.set_yticks(np.linspace(0.0,10,11))
-    axes.set_xlim([0,1000])
+    axes.set_xlim([0,2000])
     axes.set_ylim(0.0,2)
-    axes.set_xticks(np.linspace(0,1000,21))
+    axes.set_xticks(np.linspace(0,2000,11))
     axes.set_yticks(np.linspace(0.0,2,11))
+    axes.vlines(x = space_3, ymin = 0, ymax = 2,\
+    linewidth = 2,color = 0.7*np.array([0,1,0]),label = 'Lens')
+    axes.vlines(x = space_3 + space_4, ymin = 0, ymax = 2,\
+    linewidth = 2,color = 0.7*np.array([1,0,0]),label = 'QPD')
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from L1 / m')
+    axes.set_xlabel('Distance from OM0 / m')
     axes.set_ylabel('Beam size / mm')
-    plt.title('Beam path from SR2 to QPD-I')
+    #plt.title('Beam path from SR2 to QPD-I')
+    plt.legend()
     plt.tight_layout()
 
-def QPD_sense(x0,a0,space_3): 
+def QPD_sense(x0,a0,var_space): 
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
     # Displacement and Direction errors applied at SRM. Returns, x offsets at WFS1 and WFS2. 
     U = Beam(w0,z0,x0,a0)
@@ -241,14 +249,18 @@ def QPD_sense(x0,a0,space_3):
     U = U.propagate(space_1)
     U = U.lens(F_L0)
     U = U.propagate(space_2)
-    U = U.lens(F_L1)
-    U = U.propagate(space_3)
+    if var_space <= space_3:
+        U = U.propagate(var_space)
+    else:
+        U = U.propagate(space_3)
+        U = U.lens(F_L1)
+        U = U.propagate(var_space - space_3)
     xparams = U.amp_fit()
-    Dx = xparams[0] / abs(xparams[2]) # normalise offset to width in x-space
+    Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     return Dx
 
 def sen_dep(): # Calculates x offset as a function of distance from L2 for pure displacement and direction errors
-    s3 = np.linspace(0,1000,21)
+    s3 = np.linspace(0,2000,31)
     xoff = []
     for i in range(len(s3)):
         Dx = QPD_sense(0.0,0.1,int(s3[i]))
@@ -256,18 +268,22 @@ def sen_dep(): # Calculates x offset as a function of distance from L2 for pure 
     sen_plot(s3,xoff)
 
 def sen_plot(dist,xoff,n=6): # Plots x offset as function of distance from L2 for pure displacement and direction errors
-    fig, ax1 = plt.subplots()
-    ax1.plot(dist, xoff, color = 'blue')
-    ax1.set_xlim([0, 1000])
-    ax1.set_ylim([-3, 3])
-    ax1.grid(which = 'major', axis = 'both')
-    plt.title('Apply tilt to SR2')     
-    ax1.set_xlabel('distance from L1 / mm')
-    ax1.set_ylabel('offset in x / 1/e^2 radius')
-    ax1.set_xticks(np.linspace(0,1000,21))
-    #ax1.set_yticks(np.linspace(0.0,2,11))
-    #fig.legend(loc = 'upper right', bbox_to_anchor=(0.95, 0.92))
-    fig.tight_layout()
+    plt.figure(figsize=(6, 5), dpi=120)
+    plt.plot(dist, xoff, color = 'blue')
+    axes = plt.gca()
+    axes.set_xlim([0, 2000])
+    axes.set_ylim([-2, 2])
+    axes.set_xticks(np.linspace(0,2000,11))
+    axes.vlines(x = space_3, ymin = -2, ymax = 2,\
+    linewidth = 2,color = 0.7*np.array([0,1,0]),label = 'Lens')
+    axes.vlines(x = space_3 + space_4, ymin = -2, ymax = 2,\
+    linewidth = 2,color = 0.7*np.array([1,0,0]),label = 'QPD')
+    plt.title('Apply 100 micron tilt to SR2')     
+    plt.xlabel('distance from OM0 / mm')
+    plt.ylabel('offset in x / mm')
+    plt.grid(which = 'major', axis = 'both')
+    plt.legend()
+    plt.tight_layout()
 
 def main():
     beam_profile()

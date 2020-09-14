@@ -278,11 +278,10 @@ def servo():
     print(WFS_res)
 
 def main():
-    TT_test()
-    WFS_test()
-    W1W2_test()
+    print(TT_test())
+    print(WFS_test())
+    print(W1W2_test())
     servo()
-    #plt.show()
     
 if __name__ == "__main__":
     main()
