@@ -200,6 +200,7 @@ def beam_profile():
     U = U.propagate(space_2,True)
     U = U.mirror(R2)
     U = U.propagate(space_3,True)
+    U = U.propagate(3500,True)
     width_plot(U.z,U.w)
 
 def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given waist array. 
@@ -208,14 +209,23 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     plt.figure(figsize=(9, 7), dpi=120)
     plt.plot(zplot,wplot, linewidth = 3)
     axes = plt.gca()
-    axes.set_xlim([0, 7])
+    axes.set_xlim([0, 10])
     axes.set_ylim(0.0,2.6)
-    axes.set_xticks(np.linspace(0,7,8))
+    axes.set_xticks(np.linspace(0,10,11))
     axes.set_yticks(np.linspace(0.0,2.6,14))
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from SRM / m')
+    axes.set_xlabel('Distance from BHDL1 / m')
     axes.set_ylabel('Beam size / mm')
-    plt.title('Layout 5f + WFS42. Beam profile calculated with Fourier algorithm.')
+    axes.vlines(x = 0.001 * space_0, ymin = 0, ymax = 120,\
+    linewidth = 2,color = 0.75*np.array([1,0.25,0.25]),linestyles = 'dashed',label = 'Viewport')
+    #axes.vlines(x = 0.001 * (space_0 + space_1), ymin = 0, ymax = 120,\
+    #linewidth = 2,color = 0.75*np.array([0.25,1,0.25]),linestyles = 'dashed',label = 'OM1') 
+    #axes.vlines(x = 0.001 * (space_0 + space_1 + space_2), ymin = 0, ymax = 120,\
+    #linewidth = 2,color = 0.75*np.array([1,1,0.25]),linestyles = 'dashed',label = 'OM2') 
+    axes.vlines(x = 0.001 * (space_0 + space_1 + space_2 + space_3), ymin = 0, ymax = 120,\
+    linewidth = 2,color = 0.75*np.array([0.25,0.25,0.25]),linestyles = 'dashed',label = 'OMC')
+    plt.legend()
+    #plt.title('')
     plt.tight_layout()
 
 def L1_displ(x0): 
@@ -233,39 +243,37 @@ def L1_displ(x0):
     Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
     Dk = kparams[0] #/ abs(kparams[2]) # normalise offset to width in k-space
-    return (Dx, Dk)
+    Beta = 1000 * Dk / np.sqrt(U.kwav**2 - Dk**2)
+    return (Dx, Beta)
 
 def L1_test(): # Displace L1 by equal positive and negative amounts. Return x and k offsets at OMC waist.
     x1 = []
-    k1 = []
+    b1 = []
     displ = np.linspace(-1e3, 1e3, 2)
     for i in range(len(displ)):
-        Dx, Dk = L1_displ(displ[i])
+        Dx, Beta = L1_displ(displ[i])
         x1.append(Dx)
-        k1.append(Dk)
-        #print(Dx,Dk)
-    #print(x1,k1)
-    return (x1,k1)
+        b1.append(Beta)
+    return (x1,b1)
 
 def L1_dep():  # Calculates orthogonality between mirrors: angle between unit vectors corresponding to effect of mirror tilt in x-k space. 
     Mtest = L1_test()
-    print(Mtest)
-    xk_plot(Mtest[0],Mtest[1])
+    xb_plot(Mtest[0],Mtest[1])
 
-def xk_plot(x1,k1,n=4): # Plots displacement in x-k space caused when lens, L1 displaced.
+def xb_plot(x1,b1,n=4): # Plots displacement in x-k space caused when lens, L1 displaced.
     plt.figure(n, figsize=(6, 5.5), dpi=120)
-    plt.plot(x1, k1)                                                
+    plt.plot(x1, b1)                                                
     plt.title('L1 displaced by +/- 1 m')         
-    #lt.legend()
     axes = plt.gca()
-    #axes.set_xlim([-3, 3])
-    #axes.set_ylim([-3, 3])
-    plt.xlabel('offset in x at OMC waist  / mm')
-    plt.ylabel('offset in k_x at waist between WFS / mm^-1')
+    plt.xlabel('Change in position at OMC waist  / mm')
+    plt.ylabel('Change in direction at OMC waist / mrad')
+    textstr = 'Sensitivity:\n+%.2f mm / m\n %.1f mrad / m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+    axes.text(0.75, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     plt.tight_layout()
 
 def main():
-    #beam_profile()
+    beam_profile()
     #print(L1_displ(10))
     #L1_test()
     L1_dep()
