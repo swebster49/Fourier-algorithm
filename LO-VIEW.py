@@ -243,7 +243,7 @@ def L1_displ(x0):
     Dx = xparams[0] #/ abs(xparams[2]) # normalise offset to width in x-space
     kparams = U.freq_fit()
     Dk = kparams[0] #/ abs(kparams[2]) # normalise offset to width in k-space
-    Beta = 1000 * Dk / np.sqrt(U.kwav**2 - Dk**2)
+    Beta = 1000 * np.arctan(Dk / np.sqrt(U.kwav**2 - Dk**2))
     return (Dx, Beta)
 
 def L1_test(): # Displace L1 by equal positive and negative amounts. Return x and k offsets at OMC waist.
@@ -267,13 +267,13 @@ def xb_plot(x1,b1,n=4): # Plots displacement in x-k space caused when lens, L1 d
     axes = plt.gca()
     plt.xlabel('Change in position at OMC waist  / mm')
     plt.ylabel('Change in direction at OMC waist / mrad')
-    textstr = 'Sensitivity:\n+%.2f mm / m\n %.1f mrad / m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
+    textstr = 'Sensitivity:\n+%.1f mm / m\n %.2f mrad / m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
     axes.text(0.75, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     plt.tight_layout()
 
 def main():
-    beam_profile()
+    #beam_profile()
     #print(L1_displ(10))
     #L1_test()
     L1_dep()
