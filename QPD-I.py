@@ -29,18 +29,18 @@ a0 = 0.0                                                            # initial an
 L0_OM0 = 1152
 OM0_L1 = 660
 space_0 = 15756                                                     # SR2 - SRM
-space_1 = 1120                                                      # SRM - L0
-space_2 = 1152                                                      # L0 - OM0
-space_3 = 660                                                       # OM0 - L1
-space_4 = 380                                                       # L1 - QPD
+space_1 = 1193 #1120                                                      # SRM - L0
+space_2 = 1271 #1152                                                      # L0 - OM0
+space_3 = 458 #660                                                       # OM0 - L1
+space_4 = 276 #380                                                       # L1 - QPD
 z_OM0 = (space_0 + space_1 + space_2) 
 z_L1 = (space_0 + space_1 + space_2 + space_3)
 z_QPD = (space_0 + space_1 + space_2 + space_3 + space_4)
 n1064 = 1.44963
 R_SRM = 5694
 F_SRM = R_SRM / (n1064 - 1)
-F_L0 = -17100                                                         # OFI lens
-F_L1 = 750                                                              # L1
+F_L0 = -13100                                                         # OFI lens
+F_L1 = 525 #750                                                              # L1
 
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
@@ -234,7 +234,7 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     axes.vlines(x = space_3 + space_4, ymin = 0, ymax = 2,\
     linewidth = 2,color = 0.7*np.array([1,0,0]),label = 'QPD')
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from OM0 / m')
+    axes.set_xlabel('Distance from OM0 / mm')
     axes.set_ylabel('Beam size / mm')
     #plt.title('Beam path from SR2 to QPD-I')
     plt.legend()
@@ -278,7 +278,7 @@ def sen_plot(dist,xoff,n=6): # Plots x offset as function of distance from L2 fo
     linewidth = 2,color = 0.7*np.array([0,1,0]),label = 'Lens')
     axes.vlines(x = space_3 + space_4, ymin = -2, ymax = 2,\
     linewidth = 2,color = 0.7*np.array([1,0,0]),label = 'QPD')
-    plt.title('Apply 100 micron tilt to SR2')     
+    plt.title('Apply 100 microrad tilt to SR2')     
     plt.xlabel('distance from OM0 / mm')
     plt.ylabel('offset in x / mm')
     plt.grid(which = 'major', axis = 'both')
