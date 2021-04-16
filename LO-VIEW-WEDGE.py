@@ -8,7 +8,8 @@ from scipy.fft import ifft #as ifft
 '''
 Uses Fourier method of Sziklas and Seigman (1975) [see also Leavey and Courtial, Young TIM User Guide (2017).] for beam propagation.
 Calculation of:
-1) the effect of transverse displacement of septum window in LO beam path, with a notional focal length of 1 km (due to imperfect polish), upon the position and direction of the beam at the OMC waist.
+1) the effect of transverse displacement of septum window in LO beam path, with a wedge of 0.75˚upon the position and direction of the beam at the OMC waist.
+Use trig to determine displacement of beam for a given displacement of the wedged substrate. Propagate from the wedge and apply an offset to the beam at source.
 '''
 
 # General comment: 
@@ -17,18 +18,22 @@ Calculation of:
 
 # Inputs
 wav = 1.064e-3                                                      # wavelength in mm
-z0 = -3330.5                                                        # input waist location
+z0 = -1974.2                                                        # input waist location
 b0 = 701.1                                                          # input Rayleigh range
 w0 = np.sqrt(b0 * wav / np.pi)                                      # input waist size - specified by Rayleigh range
 x0 = 0.0                                                            # initial offset in mm
 a0 = 0.0                                                            # initial angle in mrad
-space_0 = 1356                                                      # BHDL1 - LO-VIEW
 space_1 = 2220                                                      # LO-VIEW - OM1
 space_2 = 1590                                                      # OM1 - OM2
 space_3 = 1220                                                      # OM2 - OMC
 alpha = 0.0059                                                      # Deflection imparted by wedged substrate with wedge angle of 0.75˚
 R1 = 1000 * 5.709                                                   # OM1
 R2 = 1000 * 2.360                                                   # OM2
+theta_i = (np.pi/180) * 0.75                                        # wedge angle of 0.75˚, and incidence angle at wedged surface
+n = 1.45                                                            # refractive index
+theta_r = np.arcsin(n * np.sin(theta_i))                            # angle of reflection
+theta_d = theta_r - theta_i                                         # angle of deflection
+g = np.tan(theta_i) * np.sin(theta_d)                               # ratio of displacement of beam to displacement of wedged substrate
 
 class Beam: 
     '''Represents Gaussian beam in x, propagating along z. 
@@ -199,9 +204,6 @@ def beam_profile():
     # Runs series of methods corresponding to propagation of beam through various elements in system. 
     # Calculate beam waist along the way ('True' condition passed to propagate). 
     U = Beam(w0,z0)
-    U = U.propagate(space_0,True)
-    U = U.wedge(alpha,0)
-    U = U.wedge(-alpha,0)
     U = U.propagate(space_1,True)
     U = U.mirror(R1)
     U = U.propagate(space_2,True)
@@ -221,27 +223,25 @@ def width_plot(distance_list,width_list,n=3): # Plots beam profile for a given w
     axes.set_xticks(np.linspace(0,10,11))
     axes.set_yticks(np.linspace(0.0,2.6,14))
     plt.grid(which = 'both', axis = 'both', linestyle = '--')
-    axes.set_xlabel('Distance from BHDL1 / m')
+    axes.set_xlabel('Distance from Viewport / m')
     axes.set_ylabel('Beam size / mm')
-    axes.vlines(x = 0.001 * space_0, ymin = 0, ymax = 120,\
-    linewidth = 2,color = 0.75*np.array([1,0.25,0.25]),linestyles = 'dashed',label = 'Viewport')
+    #axes.vlines(x = 0.001 * space_0, ymin = 0, ymax = 120,\
+    #linewidth = 2,color = 0.75*np.array([1,0.25,0.25]),linestyles = 'dashed',label = 'Viewport')
     #axes.vlines(x = 0.001 * (space_0 + space_1), ymin = 0, ymax = 120,\
     #linewidth = 2,color = 0.75*np.array([0.25,1,0.25]),linestyles = 'dashed',label = 'OM1') 
     #axes.vlines(x = 0.001 * (space_0 + space_1 + space_2), ymin = 0, ymax = 120,\
     #linewidth = 2,color = 0.75*np.array([1,1,0.25]),linestyles = 'dashed',label = 'OM2') 
-    axes.vlines(x = 0.001 * (space_0 + space_1 + space_2 + space_3), ymin = 0, ymax = 120,\
+    axes.vlines(x = 0.001 * (space_1 + space_2 + space_3), ymin = 0, ymax = 120,\
     linewidth = 2,color = 0.75*np.array([0.25,0.25,0.25]),linestyles = 'dashed',label = 'OMC')
     plt.legend()
     #plt.title('')
     plt.tight_layout()
 
-def L1_displ(x0): 
+def L1_displ(x0):
+    d = x0 * g # displacement of beam given displacement of wedged substrate
     # Runs series of methods corresponding to propagation of beam through various elements in system. Fixed spacings, defined in global variables. 
-    # L1 displaced by x0. Returns, x and k offsets at OMC waist. 
-    U = Beam(w0,z0)
-    U = U.propagate(space_0,True)
-    U = U.wedge(alpha,x0)
-    #U = U.wedge(-alpha,0)
+    # Wedged substrate displaced by x0, beam displaced by d. Returns, x and k offsets at OMC waist. 
+    U = Beam(w0,z0,d,0)
     U = U.propagate(space_1,True)
     U = U.mirror(R1)
     U = U.propagate(space_2,True)
@@ -257,7 +257,7 @@ def L1_displ(x0):
 def L1_test(): # Displace L1 by equal positive and negative amounts. Return x and k offsets at OMC waist.
     x1 = []
     b1 = []
-    displ = np.linspace(-1e3, 1e3, 2)
+    displ = np.linspace(-1e3, 1e3, 2) # displace wedged substrate by +/- 1 m
     for i in range(len(displ)):
         Dx, Beta = L1_displ(displ[i])
         x1.append(Dx)
@@ -271,17 +271,17 @@ def L1_dep():  # Calculates orthogonality between mirrors: angle between unit ve
 def xb_plot(x1,b1,n=4): # Plots displacement in x-k space caused when lens, L1 displaced.
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(x1, b1)                                                
-    plt.title('L1 displaced by +/- 1 m')         
+    plt.title('Wedged viewport in LO beam displaced by +/- 1 m')         
     axes = plt.gca()
     plt.xlabel('Change in position at OMC waist  / mm')
     plt.ylabel('Change in direction at OMC waist / mrad')
-    textstr = 'Sensitivity:\n+%.12f mm / m\n %.12f mrad / m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
+    textstr = 'Wedge angle: 0.75˚\nSensitivity: %.3f mm/m\n                   %.3f mrad/m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    axes.text(0.5, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
+    axes.text(0.02, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     plt.tight_layout()
 
 def main():
-    #beam_profile()
+    beam_profile()
     #print(L1_displ(10))
     #L1_test()
     L1_dep()
