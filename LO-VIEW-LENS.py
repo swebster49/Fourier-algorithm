@@ -26,7 +26,7 @@ space_0 = 1356                                                      # BHDL1 - LO
 space_1 = 2220                                                      # LO-VIEW - OM1
 space_2 = 1590                                                      # OM1 - OM2
 space_3 = 1220                                                      # OM2 - OMC
-FV = 1000 * 1000                                                    # Notional focal length of septum window (LO-VIEW) due to imperfect polish = 1 km
+FV = 100 *1000 * 1000                                               # Notional focal length of septum window (LO-VIEW) due to imperfect polish = 100 km
 R1 = 1000 * 5.709                                                   # OM1
 R2 = 1000 * 2.360                                                   # OM2
 
@@ -263,13 +263,13 @@ def L1_dep():  # Calculates orthogonality between mirrors: angle between unit ve
 def xb_plot(x1,b1,n=4): # Plots displacement in x-k space caused when lens, L1 displaced.
     plt.figure(n, figsize=(6, 5.5), dpi=120)
     plt.plot(x1, b1)                                                
-    plt.title('L1 displaced by +/- 1 m')         
+    plt.title('Lens-like Viewport displaced by +/- 1 m')         
     axes = plt.gca()
     plt.xlabel('Change in position at OMC waist  / mm')
     plt.ylabel('Change in direction at OMC waist / mrad')
-    textstr = 'Sensitivity:\n+%.1f mm / m\n %.2f mrad / m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
+    textstr = 'Focal length: 100 km\nSensitivity:+%.4f mm/m\n                   %.4f mrad/m' % ((x1[1] - x1[0])/2,(b1[1] - b1[0])/2)
     props = dict(boxstyle='square', facecolor='white', alpha=0.5)
-    axes.text(0.75, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
+    axes.text(0.57, 0.98, textstr, transform=axes.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     plt.tight_layout()
 
 def main():
